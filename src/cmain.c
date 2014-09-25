@@ -30,6 +30,7 @@
 #include "scip/scipdefplugins.h"
 
 #include "nodesel_oracle.h"
+#include "nodepru_oracle.h"
 
 static
 SCIP_RETCODE fromCommandLine(
@@ -195,6 +196,7 @@ SCIP_RETCODE processShellArguments(
       if ( solname != NULL )
       {
          SCIP_CALL( SCIPsetStringParam(scip, "nodeselection/oracle/solfname", solname) );
+         SCIP_CALL( SCIPsetStringParam(scip, "nodepruning/oracle/solfname", solname) );
       }
          
       SCIP_CALL( SCIPsetStringParam(scip, "vbc/filename", "test.vbc") );
@@ -276,9 +278,12 @@ SCIP_RETCODE runShell(
    
    /* include default SCIP plugins */
    SCIP_CALL( SCIPincludeDefaultPlugins(scip) );
- 
+
    /* include oracle node selector */
    SCIP_CALL( SCIPincludeNodeselOracle(scip) );
+
+   /* include oracle node pruner */
+   SCIP_CALL( SCIPincludeNodepruOracle(scip) );
 
    /* disable heuristics */
    num_heur = SCIPgetNHeurs( scip );

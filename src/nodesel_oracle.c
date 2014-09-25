@@ -34,7 +34,7 @@
 #include <string.h>
 #include "nodesel_oracle.h"
 #include "scip/sol.h"
-#include "scip/struct_scip.h"
+#include "scip/tree.h"
 #include "scip/struct_set.h"
 
 #define NODESEL_NAME            "oracle"
@@ -56,10 +56,9 @@ struct SCIP_NodeselData
 };
 
 /** check if the given node include the optimal solution */
-static
-SCIP_Bool nodeIsOptimal(
+SCIP_Bool SCIPnodeCheckOptimal(
    SCIP*                 scip,               /**< SCIP data structure */
-   SCIP_NODESELDATA*     nodeseldata,        /**< node selector data */
+   SCIP_SOL*             optsol,             /**< node selector data */
    SCIP_NODE*            node                /**< the node in question */
    )
 {
@@ -73,8 +72,21 @@ SCIP_Bool nodeIsOptimal(
    int                   branchvarssize;     /* available slots in arrays */
 
    int i;
+   SCIP_Bool isoptimal = TRUE;
 
+   assert(optsol != NULL);
    assert(node != NULL);
+
+   if( SCIPnodeIsOptchecked(node) )
+      return SCIPnodeIsOptimal(node);
+   SCIPnodeSetOptchecked(node);
+
+   /* root node */
+   if( SCIPnodeGetDepth(node) == 0 )
+   {
+      SCIPnodeSetOptimal(node);
+      return TRUE;
+   }
 
    branchvarssize = 1; 
 
@@ -103,18 +115,31 @@ SCIP_Bool nodeIsOptimal(
    assert(nbranchvars >= 1);
    for( i = 0; i < nbranchvars; ++i)
    {
-      SCIP_Real optval = SCIPgetSolVal(scip, nodeseldata->optsol, branchvars[i]);
+      SCIP_Real optval = SCIPgetSolVal(scip, optsol, branchvars[i]);
       if( (boundtypes[i] == SCIP_BOUNDTYPE_LOWER && optval < branchbounds[i]) ||
           (boundtypes[i] == SCIP_BOUNDTYPE_UPPER && optval > branchbounds[i]) )
-         return FALSE;
+      {
+         isoptimal = FALSE;
+         break;
+      }
    }
-   return TRUE;
+
+   /* free all local memory */
+   SCIPfreeBufferArray(scip, &branchvars);
+   SCIPfreeBufferArray(scip, &boundtypes);
+   SCIPfreeBufferArray(scip, &branchbounds);
+  
+   if( isoptimal )
+   {
+      SCIPnodeSetOptimal(node);
+      return TRUE;
+   }
+   return FALSE;
 }
 
 /** read the optimal solution (modified from readSol in reader_sol.c -- don't connect the solution with primal solutions) */
 /** TODO: currently the read objective is wrong, since it doesn not include objetives from multi-aggregated variables */
-static
-SCIP_RETCODE readOptSol(
+SCIP_RETCODE SCIPreadOptSol(
    SCIP*                 scip,               /**< SCIP data structure */
    const char*           fname,              /**< name of the input file */
    SCIP_SOL**            sol                 /**< pointer to store the solution */
@@ -125,8 +150,6 @@ SCIP_RETCODE readOptSol(
    SCIP_Bool unknownvariablemessage;
    SCIP_Bool usevartable;
    int lineno;
-
-   printf("Read solution at stage %d\n", scip->set->stage);
 
    assert(scip != NULL);
    assert(fname != NULL);
@@ -255,10 +278,16 @@ SCIP_RETCODE readOptSol(
 
    if( !error )
    {
+      SCIP_Real obj;
+      SCIP_Real offset;
       assert(SCIPgetNSols(scip) == 0);
       /* display result */
+      obj = SCIPgetSolOrigObj(scip, *sol);
+      offset = SCIPgetOrigObjoffset(scip);
       SCIPverbMessage(scip, SCIP_VERBLEVEL_NORMAL, NULL, "optimal solution from solution file <%s> was %s\n",
          fname, "read, will be used in the oracle node selector");
+      SCIPverbMessage(scip, SCIP_VERBLEVEL_NORMAL, NULL, "objective: %f\n", obj);
+      SCIPverbMessage(scip, SCIP_VERBLEVEL_NORMAL, NULL, "offset: %f\n", offset);
       return SCIP_OKAY;
    }
    else
@@ -299,7 +328,7 @@ SCIP_DECL_NODESELINITSOL(nodeselInitsolOracle)
    assert(nodeseldata->solfname != NULL);
    nodeseldata->optsol = NULL;
 
-   readOptSol(scip, nodeseldata->solfname, &nodeseldata->optsol);
+   SCIP_CALL( SCIPreadOptSol(scip, nodeseldata->solfname, &nodeseldata->optsol) );
    assert(nodeseldata->optsol != NULL);
   
    SCIP_CALL( SCIPprintSol(scip, nodeseldata->optsol, NULL, FALSE) ); 
@@ -348,6 +377,7 @@ SCIP_DECL_NODESELCOMP(nodeselCompOracle)
    SCIP_Bool isoptimal1;
    SCIP_Bool isoptimal2;
    SCIP_NODESELDATA* nodeseldata;
+   SCIP_SOL* optsol;
 
    assert(nodesel != NULL);
    assert(strcmp(SCIPnodeselGetName(nodesel), NODESEL_NAME) == 0);
@@ -355,10 +385,11 @@ SCIP_DECL_NODESELCOMP(nodeselCompOracle)
 
    nodeseldata = SCIPnodeselGetData(nodesel);
    assert(nodeseldata != NULL);
-   assert(nodeseldata->optsol != NULL);
+   optsol = nodeseldata->optsol;
+   assert(optsol != NULL);
 
-   isoptimal1 = nodeIsOptimal(scip, nodeseldata, node1);
-   isoptimal2 = nodeIsOptimal(scip, nodeseldata, node2);
+   isoptimal1 = SCIPnodeCheckOptimal(scip, optsol, node1);
+   isoptimal2 = SCIPnodeCheckOptimal(scip, optsol, node2);
 
    if( isoptimal1 == TRUE )
    {

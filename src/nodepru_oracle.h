@@ -14,7 +14,7 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /**@file   nodesel_uct.h
- * @ingroup NODESELECTORS
+ * @ingroup NODEPRUECTORS
  * @brief  uct node selector which balances exploration and exploitation by considering node visits
  * @author Gregor Hendel
  *
@@ -58,8 +58,8 @@
 
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
 
-#ifndef __SCIP_NODESEL_ORACLE_H__
-#define __SCIP_NODESEL_ORACLE_H__
+#ifndef __SCIP_NODEPRU_ORACLE_H__
+#define __SCIP_NODEPRU_ORACLE_H__
 
 
 #include "scip/scip.h"
@@ -68,26 +68,10 @@
 extern "C" {
 #endif
 
-/** creates the oracle node selector and includes it in SCIP */
-EXTERN
-SCIP_RETCODE SCIPincludeNodeselOracle(
+/** creates the oracle node pruner and includes it in SCIP */
+extern
+SCIP_RETCODE SCIPincludeNodepruOracle(
    SCIP*                 scip                /**< SCIP data structure */
-   );
-
-/** read the optimal solution (modified from readSol in reader_sol.c -- don't connect the solution with primal solutions) */
-EXTERN
-SCIP_RETCODE SCIPreadOptSol(
-   SCIP*                 scip,               /**< SCIP data structure */
-   const char*           fname,              /**< name of the input file */
-   SCIP_SOL**            sol                 /**< pointer to store the solution */
-   );
-
-/** check if the given node include the optimal solution */
-EXTERN
-SCIP_Bool SCIPnodeCheckOptimal(
-   SCIP*                 scip,               /**< SCIP data structure */
-   SCIP_SOL*             optsol,             /**< node selector data */
-   SCIP_NODE*            node                /**< the node in question */
    );
 
 #ifdef __cplusplus

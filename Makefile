@@ -36,6 +36,7 @@ include $(SCIPDIR)/make/make.project
 
 MAINNAME	=	sciptest
 CMAINOBJ	=	nodesel_oracle.o \
+			nodepru_oracle.o \
 			cmain.o
 
 CXXMAINOBJ	=	 

@@ -63,6 +63,7 @@
 
 
 #include "scip/scip.h"
+#include "feat.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -84,10 +85,10 @@ SCIP_RETCODE SCIPreadOptSol(
 
 /** check if the given node include the optimal solution */
 EXTERN
-SCIP_Bool SCIPnodeCheckOptimal(
+SCIP_RETCODE SCIPnodeCheckOptimal(
    SCIP*                 scip,               /**< SCIP data structure */
-   SCIP_SOL*             optsol,             /**< node selector data */
-   SCIP_NODE*            node                /**< the node in question */
+   SCIP_NODE*            node,               /**< the node in question */
+   SCIP_SOL*             optsol              /**< node selector data */
    );
 
 #ifdef __cplusplus

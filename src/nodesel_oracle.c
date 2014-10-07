@@ -1,18 +1,3 @@
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/*                                                                           */
-/*                  This file is part of the program and library             */
-/*         SCIP --- Solving Constraint Integer Programs                      */
-/*                                                                           */
-/*    Copyright (C) 2002-2014 Konrad-Zuse-Zentrum                            */
-/*                            fuer Informationstechnik Berlin                */
-/*                                                                           */
-/*  SCIP is distributed under the terms of the ZIB Academic License.         */
-/*                                                                           */
-/*  You should have received a copy of the ZIB Academic License              */
-/*  along with SCIP; see the file COPYING. If not email to scip@zib.de.      */
-/*                                                                           */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
 /**@file   nodesel_uct.c
  * @brief  uct node selector which balances exploration and exploitation by considering node visits
  * @author Gregor Hendel
@@ -33,9 +18,11 @@
 #include <assert.h>
 #include <string.h>
 #include "nodesel_oracle.h"
+#include "feat.h"
 #include "scip/sol.h"
 #include "scip/tree.h"
 #include "scip/struct_set.h"
+#include "scip/struct_scip.h"
 
 #define NODESEL_NAME            "oracle"
 #define NODESEL_DESC            "node selector which always selects the optimal node"
@@ -53,13 +40,25 @@ struct SCIP_NodeselData
 {
    SCIP_SOL*          optsol;             /**< optimal solution */
    char*              solfname;           /**< name of the solution file */
+   char*              trjfname;           /**< name of the trajectory file */
+   FILE*              trjfile;
+   SCIP_FEAT*         feat;
+   SCIP_FEAT*         optfeat;
+   SCIP_Longint       optnodenumber;             /**< successively assigned number of the node */
+   SCIP_Bool          negate;
 };
 
+
+/*
+ * Local methods
+ */
+
 /** check if the given node include the optimal solution */
-SCIP_Bool SCIPnodeCheckOptimal(
+/* TODO: remove to ischecked */
+SCIP_RETCODE SCIPnodeCheckOptimal(
    SCIP*                 scip,               /**< SCIP data structure */
-   SCIP_SOL*             optsol,             /**< node selector data */
-   SCIP_NODE*            node                /**< the node in question */
+   SCIP_NODE*            node,               /**< the node in question */
+   SCIP_SOL*             optsol              /**< node selector data */
    )
 {
    /* get parent branch vars lead to this node */
@@ -72,21 +71,24 @@ SCIP_Bool SCIPnodeCheckOptimal(
    int                   branchvarssize;     /* available slots in arrays */
 
    int i;
+   SCIP_NODE* parent;
    SCIP_Bool isoptimal = TRUE;
+
 
    assert(optsol != NULL);
    assert(node != NULL);
+   assert(SCIPnodeIsOptchecked(node) == FALSE);
 
-   if( SCIPnodeIsOptchecked(node) )
-      return SCIPnodeIsOptimal(node);
-   SCIPnodeSetOptchecked(node);
+   /* don't consider root node */
+   assert(SCIPnodeGetDepth(node) != 0);
 
-   /* root node */
-   if( SCIPnodeGetDepth(node) == 0 )
-   {
-      SCIPnodeSetOptimal(node);
-      return TRUE;
-   }
+   SCIPdebugMessage("checking node %d\n", (int)SCIPnodeGetNumber(node));
+
+   /* check parent: if parent is not optimal, its subtree is not optimal */
+   parent = SCIPnodeGetParent(node);
+   /* root is always optimal */
+   if( SCIPnodeGetDepth(parent) > 0 && !SCIPnodeIsOptimal(parent) )
+      return SCIP_OKAY;
 
    branchvarssize = 1; 
 
@@ -130,11 +132,9 @@ SCIP_Bool SCIPnodeCheckOptimal(
    SCIPfreeBufferArray(scip, &branchbounds);
   
    if( isoptimal )
-   {
       SCIPnodeSetOptimal(node);
-      return TRUE;
-   }
-   return FALSE;
+
+   return SCIP_OKAY;
 }
 
 /** read the optimal solution (modified from readSol in reader_sol.c -- don't connect the solution with primal solutions) */
@@ -279,15 +279,12 @@ SCIP_RETCODE SCIPreadOptSol(
    if( !error )
    {
       SCIP_Real obj;
-      SCIP_Real offset;
       assert(SCIPgetNSols(scip) == 0);
       /* display result */
       obj = SCIPgetSolOrigObj(scip, *sol);
-      offset = SCIPgetOrigObjoffset(scip);
       SCIPverbMessage(scip, SCIP_VERBLEVEL_NORMAL, NULL, "optimal solution from solution file <%s> was %s\n",
          fname, "read, will be used in the oracle node selector");
       SCIPverbMessage(scip, SCIP_VERBLEVEL_NORMAL, NULL, "objective: %f\n", obj);
-      SCIPverbMessage(scip, SCIP_VERBLEVEL_NORMAL, NULL, "offset: %f\n", offset);
       return SCIP_OKAY;
    }
    else
@@ -318,20 +315,38 @@ static
 SCIP_DECL_NODESELINITSOL(nodeselInitsolOracle)
 {
    SCIP_NODESELDATA* nodeseldata;
+
    assert(scip != NULL);
    assert(nodesel != NULL);
 
    nodeseldata = SCIPnodeselGetData(nodesel);
-
    assert(nodeseldata != NULL);
+
    /** solfname should be set before including nodeseloracle */
    assert(nodeseldata->solfname != NULL);
    nodeseldata->optsol = NULL;
-
    SCIP_CALL( SCIPreadOptSol(scip, nodeseldata->solfname, &nodeseldata->optsol) );
    assert(nodeseldata->optsol != NULL);
-  
    SCIP_CALL( SCIPprintSol(scip, nodeseldata->optsol, NULL, FALSE) ); 
+   
+   nodeseldata->trjfile = NULL;
+   if( nodeseldata->trjfname != NULL )
+      nodeseldata->trjfile = fopen(nodeseldata->trjfname, "a");
+
+   /* create feat */
+   nodeseldata->feat = NULL;
+   SCIP_CALL( SCIPfeatCreate(scip, &nodeseldata->feat, SCIP_FEATNODESEL_SIZE) );
+   assert(nodeseldata->feat != NULL);
+   SCIPfeatSetMaxDepth(nodeseldata->feat, SCIPgetNVars(scip));
+  
+   /* create optimal node feat */
+   nodeseldata->optfeat = NULL;
+   SCIP_CALL( SCIPfeatCreate(scip, &nodeseldata->optfeat, SCIP_FEATNODESEL_SIZE) );
+   assert(nodeseldata->optfeat != NULL);
+   SCIPfeatSetMaxDepth(nodeseldata->optfeat, SCIPgetNVars(scip));
+
+   nodeseldata->optnodenumber = -1;
+   nodeseldata->negate = TRUE;
 
    return SCIP_OKAY;
 }
@@ -348,7 +363,15 @@ SCIP_DECL_NODESELFREE(nodeselFreeOracle)
 
    assert(nodeseldata->optsol != NULL);
    SCIP_CALL( SCIPfreeSolSelf(scip, &nodeseldata->optsol) );
+  
+   if( nodeseldata->trjfile != NULL)
+      fclose(nodeseldata->trjfile);
 
+   assert(nodeseldata->feat != NULL);
+   SCIP_CALL( SCIPfeatFree(scip, &nodeseldata->feat) );
+   assert(nodeseldata->optfeat != NULL);
+   SCIP_CALL( SCIPfeatFree(scip, &nodeseldata->optfeat) );
+   
    SCIPfreeBlockMemory(scip, &nodeseldata);
 
    SCIPnodeselSetData(nodesel, NULL);
@@ -360,10 +383,85 @@ SCIP_DECL_NODESELFREE(nodeselFreeOracle)
 static
 SCIP_DECL_NODESELSELECT(nodeselSelectOracle)
 {
+   SCIP_NODESELDATA* nodeseldata;
+   SCIP_NODE** leaves;
+   SCIP_NODE** children;
+   SCIP_NODE** siblings;
+   int nleaves;
+   int nsiblings;
+   int nchildren;
+   int optchild;
+   int i;
+
    assert(nodesel != NULL);
    assert(strcmp(SCIPnodeselGetName(nodesel), NODESEL_NAME) == 0);
    assert(scip != NULL);
    assert(selnode != NULL);
+
+   nodeseldata = SCIPnodeselGetData(nodesel);
+   assert(nodeseldata != NULL);
+
+   /* collect leaves, children and siblings data */
+   SCIP_CALL( SCIPgetOpenNodesData(scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings) );
+
+   optchild = -1;
+   for( i = 0; i < nchildren; i++)
+   {
+      SCIPnodeCheckOptimal(scip, children[i], nodeseldata->optsol); 
+      SCIPnodeSetOptchecked(children[i]);
+      if( SCIPnodeIsOptimal(children[i]) )
+      {
+         SCIPdebugMessage("opt node #%"SCIP_LONGINT_FORMAT"\n", SCIPnodeGetNumber(children[i]));
+         nodeseldata->optnodenumber = SCIPnodeGetNumber(children[i]);
+         optchild = i;
+      }
+   }
+
+   /* write examples */
+   if( nodeseldata->trjfile != NULL )
+   {
+      if( optchild != -1 )
+      {
+         /* new optimal node */
+         SCIPcalcNodeselFeat(scip, children[optchild], nodeseldata->optfeat);
+         for( i = 0; i < nchildren; i++)
+         {
+            if( i != optchild )
+            {
+               SCIPcalcNodeselFeat(scip, children[i], nodeseldata->feat);
+               nodeseldata->negate ^= 1;
+               SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+               SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+            }
+         }
+         for( i = 0; i < nsiblings; i++ )
+         {
+            SCIPcalcNodeselFeat(scip, siblings[i], nodeseldata->feat);
+            nodeseldata->negate ^= 1;
+            SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+            SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+         }
+         for( i = 0; i < nleaves; i++ )
+         {
+            SCIPcalcNodeselFeat(scip, leaves[i], nodeseldata->feat);
+            nodeseldata->negate ^= 1;
+            SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+            SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+         }
+      }
+      else
+      {
+         /* children are not optimal */
+         assert(nchildren == 0 || (nchildren > 0 && nodeseldata->optnodenumber != -1));
+         for( i = 0; i < nchildren; i++ )
+         {
+            SCIPcalcNodeselFeat(scip, children[i], nodeseldata->feat);
+            nodeseldata->negate ^= 1;
+            SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+            SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+         }
+      }
+   }
 
    *selnode = SCIPgetBestNode(scip);
 
@@ -376,20 +474,16 @@ SCIP_DECL_NODESELCOMP(nodeselCompOracle)
 {  /*lint --e{715}*/
    SCIP_Bool isoptimal1;
    SCIP_Bool isoptimal2;
-   SCIP_NODESELDATA* nodeseldata;
-   SCIP_SOL* optsol;
 
    assert(nodesel != NULL);
    assert(strcmp(SCIPnodeselGetName(nodesel), NODESEL_NAME) == 0);
    assert(scip != NULL);
 
-   nodeseldata = SCIPnodeselGetData(nodesel);
-   assert(nodeseldata != NULL);
-   optsol = nodeseldata->optsol;
-   assert(optsol != NULL);
+   assert(SCIPnodeIsOptchecked(node1) == TRUE);
+   assert(SCIPnodeIsOptchecked(node2) == TRUE);
 
-   isoptimal1 = SCIPnodeCheckOptimal(scip, optsol, node1);
-   isoptimal2 = SCIPnodeCheckOptimal(scip, optsol, node2);
+   isoptimal1 = SCIPnodeIsOptimal(node1);
+   isoptimal2 = SCIPnodeIsOptimal(node2);
 
    if( isoptimal1 == TRUE )
    {
@@ -416,6 +510,10 @@ SCIP_DECL_NODESELCOMP(nodeselCompOracle)
 
          lowerbound1 = SCIPnodeGetLowerbound(node1);
          lowerbound2 = SCIPnodeGetLowerbound(node2);
+         if( SCIPisLT(scip, lowerbound1, lowerbound2) )
+            return -1;
+         else if( SCIPisGT(scip, lowerbound1, lowerbound2) )
+            return +1;
          if( lowerbound1 < lowerbound2 )
             return -1;
          else if( lowerbound1 > lowerbound2 )
@@ -463,6 +561,10 @@ SCIP_RETCODE SCIPincludeNodeselOracle(
          "nodeselection/"NODESEL_NAME"/solfname",
          "name of the optimal solution file",
          &nodeseldata->solfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );
+   SCIP_CALL( SCIPaddStringParam(scip, 
+         "nodeselection/"NODESEL_NAME"/trjfname",
+         "name of the file to write node selection trajectories",
+         &nodeseldata->trjfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );
 
    return SCIP_OKAY;
 }

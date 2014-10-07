@@ -1,26 +1,6 @@
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/*                                                                           */
-/*                  This file is part of the program and library             */
-/*         SCIP --- Solving Constraint Integer Programs                      */
-/*                                                                           */
-/*    Copyright (C) 2002-2014 Konrad-Zuse-Zentrum                            */
-/*                            fuer Informationstechnik Berlin                */
-/*                                                                           */
-/*  SCIP is distributed under the terms of the ZIB Academic License.         */
-/*                                                                           */
-/*  You should have received a copy of the ZIB Academic License              */
-/*  along with SCIP; see the file COPYING. If not email to scip@zib.de.      */
-/*                                                                           */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
 /**@file   cmain.c
- * @brief  Main file for binpacking pricing example
- * @author Timo Berthold
- * @author Stefan Heinz
- *
- *  This the file contains the \ref main() main function of the projects. This includes all the default plugins of
- *  \SCIP and the once which belong to that projects. After that is starts the interactive shell of \SCIP or processes
- *  the shell arguments if given.
+ * @brief  Main file for training/testing node selector/pruner using dagger 
+ * @author He He 
  */
 #include <stdio.h>
 #include <string.h>
@@ -30,6 +10,7 @@
 #include "scip/scipdefplugins.h"
 
 #include "nodesel_oracle.h"
+#include "nodesel_dagger.h"
 #include "nodepru_oracle.h"
 
 static
@@ -89,12 +70,10 @@ SCIP_RETCODE fromCommandLine(
     * Statistics *
     **************/
 
-   /*
    SCIPinfoMessage(scip, NULL, "\nStatistics\n");
    SCIPinfoMessage(scip, NULL, "==========\n\n");
 
    SCIP_CALL( SCIPprintStatistics(scip, NULL) );
-   */
 
    return SCIP_OKAY;
 }
@@ -109,9 +88,17 @@ SCIP_RETCODE processShellArguments(
    )
 {  /*lint --e{850}*/
    char* probname = NULL;
-   char* solname = NULL;
    char* settingsname = NULL;
    char* logname = NULL;
+   char* vbcname = NULL;
+   char* solfname = NULL;
+   char* nodeselname = NULL;
+   char* nodeseltrj = NULL;
+   char* nodeselpol= NULL;
+   char* nodepruname = NULL;
+   char* nodeprutrj = NULL;
+   char* nodeprupol= NULL;
+   SCIP_Bool solrequired = FALSE;
    SCIP_Bool quiet;
    SCIP_Bool paramerror;
    int i;
@@ -132,6 +119,17 @@ SCIP_RETCODE processShellArguments(
          else
          {
             printf("missing log filename after parameter '-l'\n");
+            paramerror = TRUE;
+         }
+      }
+      else if( strcmp(argv[i], "--vbc") == 0 )
+      {
+         i++;
+         if( i < argc )
+            vbcname = argv[i];
+         else
+         {
+            printf("missing vbc filename after parameter '--vbc'\n");
             paramerror = TRUE;
          }
       }
@@ -163,10 +161,88 @@ SCIP_RETCODE processShellArguments(
       {
          i++;
          if( i < argc )
-            solname = argv[i];
+            solfname = argv[i];
          else
          {
             printf("missing optimal solution filename after parameter '-o'\n");
+            paramerror = TRUE;
+         }
+      }
+      else if( strcmp(argv[i], "--nodepru") == 0 )
+      {
+         i++;
+         if( i < argc )
+         {
+            nodepruname = argv[i];
+
+            if( strcmp(nodepruname, "oracle") == 0 || strcmp(nodepruname, "dagger") == 0 )
+               solrequired = TRUE;
+
+            if( strcmp(nodepruname, "policy") == 0 || strcmp(nodepruname, "dagger") == 0 )
+            {
+               i++;
+               if( i < argc && argv[i][0] != '-' )
+                  nodeprupol = argv[i];
+               else
+               {
+                  printf("missing policy of node pruner '%s'\n", nodepruname);
+                  paramerror = TRUE;
+               }
+            }
+         }
+         else
+         {
+            printf("missing node pruner name after parameter '--nodepru'\n");
+            paramerror = TRUE;
+         }
+      }
+      else if( strcmp(argv[i], "--nodeprutrj") == 0 )
+      {
+         i++;
+         if( i < argc )
+            nodeprutrj = argv[i];
+         else
+         {
+            printf("missing node pruning trajectory filename after parameter '--nodeprutrj'\n");
+            paramerror = TRUE;
+         }
+      }
+      else if( strcmp(argv[i], "--nodesel") == 0 )
+      {
+         i++;
+         if( i < argc )
+         {
+            nodeselname = argv[i];
+
+            if( strcmp(nodeselname, "oracle") == 0 || strcmp(nodeselname, "dagger") == 0 )
+               solrequired = TRUE;
+
+            if( strcmp(nodeselname, "policy") == 0 || strcmp(nodeselname, "dagger") == 0 )
+            {
+               i++;
+               if( i < argc && argv[i][0] != '-' )
+                  nodeselpol = argv[i];
+               else
+               {
+                  printf("missing policy of node selector '%s'\n", nodeselname);
+                  paramerror = TRUE;
+               }
+            }
+         }
+         else
+         {
+            printf("missing node selector name after parameter '--nodesel'\n");
+            paramerror = TRUE;
+         }
+      }
+      else if( strcmp(argv[i], "--nodeseltrj") == 0 )
+      {
+         i++;
+         if( i < argc )
+            nodeseltrj = argv[i];
+         else
+         {
+            printf("missing node selection trajectory filename after parameter '--nodeseltrj'\n");
             paramerror = TRUE;
          }
       }
@@ -175,6 +251,12 @@ SCIP_RETCODE processShellArguments(
          printf("invalid parameter <%s>\n", argv[i]);
          paramerror = TRUE;
       }
+   }
+
+   if( solrequired && solfname == NULL )
+   {
+      printf("missing optimal solution file\n");
+      paramerror = TRUE;
    }
 
    if( !paramerror )
@@ -193,13 +275,57 @@ SCIP_RETCODE processShellArguments(
          SCIPsetMessagehdlrLogfile(scip, logname);
       }
 
-      if ( solname != NULL )
+      if( vbcname != NULL )
       {
-         SCIP_CALL( SCIPsetStringParam(scip, "nodeselection/oracle/solfname", solname) );
-         SCIP_CALL( SCIPsetStringParam(scip, "nodepruning/oracle/solfname", solname) );
+         SCIP_CALL( SCIPsetStringParam(scip, "vbc/filename", vbcname) );
       }
-         
-      SCIP_CALL( SCIPsetStringParam(scip, "vbc/filename", "test.vbc") );
+
+      if( nodepruname != NULL )
+      {
+         if( strcmp(nodepruname, "oracle") == 0 )
+         {
+            SCIP_CALL( SCIPincludeNodepruOracle(scip) );
+            SCIP_CALL( SCIPsetStringParam(scip, "nodepruning/oracle/solfname", solfname) );
+            if( nodeprutrj != NULL )
+               SCIP_CALL( SCIPsetStringParam(scip, "nodepruning/oracle/trjfname", nodeprutrj) );
+         }
+         else
+         {
+            printf("WARNING: unknown node pruner %s. ignored.\n", nodepruname);
+         }
+      }
+
+      if( nodeselname != NULL )
+      {
+         SCIP_Bool ignored = FALSE;
+         if( strcmp(nodeselname, "oracle") == 0 )
+         {
+            SCIP_CALL( SCIPincludeNodeselOracle(scip) );
+            SCIP_CALL( SCIPsetStringParam(scip, "nodeselection/oracle/solfname", solfname) );
+            if( nodeseltrj != NULL )
+               SCIP_CALL( SCIPsetStringParam(scip, "nodeselection/oracle/trjfname", nodeseltrj) );
+         }
+         else if( strcmp(nodeselname, "dagger") == 0 )
+         {
+            SCIP_CALL( SCIPincludeNodeselDagger(scip) );
+            SCIP_CALL( SCIPsetStringParam(scip, "nodeselection/dagger/solfname", solfname) );
+            SCIP_CALL( SCIPsetStringParam(scip, "nodeselection/dagger/polfname", nodeselpol) );
+            if( nodeseltrj != NULL )
+               SCIP_CALL( SCIPsetStringParam(scip, "nodeselection/dagger/trjfname", nodeseltrj) );
+         }
+         else
+         {
+            printf("WARNING: unknown node selector %s. ignored.\n", nodeselname);
+            ignored = TRUE;
+         }
+         if( !ignored )
+         {
+            /* use specified node selector */
+            SCIP_NODESEL* nodesel = SCIPfindNodesel( scip, nodeselname );
+            SCIP_CALL( SCIPsetNodeselStdPriority( scip, nodesel, 9999999 ) );
+         }
+      }
+
 
       /***********************************
        * Version and library information *
@@ -266,7 +392,6 @@ SCIP_RETCODE runShell(
    int num_heur = 0;
    SCIP_HEUR** heurs = NULL;
    SCIP_BRANCHRULE* branch_rule = NULL;
-   SCIP_NODESEL* nodesel = NULL;
    int i;
 
    /*********
@@ -279,12 +404,6 @@ SCIP_RETCODE runShell(
    /* include default SCIP plugins */
    SCIP_CALL( SCIPincludeDefaultPlugins(scip) );
 
-   /* include oracle node selector */
-   SCIP_CALL( SCIPincludeNodeselOracle(scip) );
-
-   /* include oracle node pruner */
-   SCIP_CALL( SCIPincludeNodepruOracle(scip) );
-
    /* disable heuristics */
    num_heur = SCIPgetNHeurs( scip );
    heurs = SCIPgetHeurs( scip );
@@ -296,10 +415,6 @@ SCIP_RETCODE runShell(
    /* use most infeasible branching */
    branch_rule = SCIPfindBranchrule( scip, "mostinf" );
    SCIP_CALL( SCIPsetBranchrulePriority( scip, branch_rule, 9999999 ) );
-   
-   /* use oracle node selector */
-   nodesel = SCIPfindNodesel( scip, "oracle" );
-   SCIP_CALL( SCIPsetNodeselStdPriority( scip, nodesel, 9999999 ) );
    
    /**********************************
     * Process command line arguments *

@@ -1,18 +1,3 @@
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/*                                                                           */
-/*                  This file is part of the program and library             */
-/*         SCIP --- Solving Constraint Integer Programs                      */
-/*                                                                           */
-/*    Copyright (C) 2002-2014 Konrad-Zuse-Zentrum                            */
-/*                            fuer Informationstechnik Berlin                */
-/*                                                                           */
-/*  SCIP is distributed under the terms of the ZIB Academic License.         */
-/*                                                                           */
-/*  You should have received a copy of the ZIB Academic License              */
-/*  along with SCIP; see the file COPYING. If not email to scip@zib.de.      */
-/*                                                                           */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
 /**@file   nodepru_oracle.c
  * @brief  oracle node pruner which prunes all non-optimal node 
  * @author He He 
@@ -23,13 +8,14 @@
  */
 
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
-
+#define SCIP_DEBUG
 #include <assert.h>
 #include <string.h>
 #include "nodepru_oracle.h"
 #include "nodesel_oracle.h"
 #include "scip/sol.h"
 #include "scip/struct_set.h"
+#include "feat.h"
 
 #define NODEPRU_NAME            "oracle"
 #define NODEPRU_DESC            "node pruner which always prunes non-optimal nodes"
@@ -46,7 +32,11 @@
 struct SCIP_NodepruData
 {
    SCIP_SOL*          optsol;             /**< optimal solution */
+   SCIP_FEAT*         feat;               /**< optimal solution */
    char*              solfname;           /**< name of the solution file */
+   char*              trjfname;           /**< name of the trajectory file */
+   SCIP_Bool          checkopt;           /**< need to check node optimality? (don't need to if node selector is oracle or dagger */ 
+   FILE*              trjfile;
 };
 
 /*
@@ -83,6 +73,24 @@ SCIP_DECL_NODEPRUINITSOL(nodepruInitsolOracle)
   
    SCIP_CALL( SCIPprintSol(scip, nodeprudata->optsol, NULL, FALSE) ); 
 
+   SCIP_CALL( SCIPfeatCreate(scip, &nodeprudata->feat, SCIP_FEATNODEPRU_SIZE) );
+
+   if( strcmp(SCIPnodeselGetName(SCIPgetNodesel(scip)), "oracle") == 0 ||
+       strcmp(SCIPnodeselGetName(SCIPgetNodesel(scip)), "dagger") == 0 )
+      nodeprudata->checkopt = FALSE;
+   else
+      nodeprudata->checkopt = TRUE;
+
+   nodeprudata->trjfile = NULL;
+   if( nodeprudata->trjfname != NULL )
+      nodeprudata->trjfile = fopen(nodeprudata->trjfname, "a");
+
+   /* create feat */
+   nodeprudata->feat = NULL;
+   SCIP_CALL( SCIPfeatCreate(scip, &nodeprudata->feat, SCIP_FEATNODEPRU_SIZE) );
+   assert(nodeprudata->feat != NULL);
+   SCIPfeatSetMaxDepth(nodeprudata->feat, SCIPgetNVars(scip));
+  
    return SCIP_OKAY;
 }
 
@@ -99,7 +107,16 @@ SCIP_DECL_NODEPRUFREE(nodepruFreeOracle)
    assert(nodeprudata->optsol != NULL);
    SCIP_CALL( SCIPfreeSolSelf(scip, &nodeprudata->optsol) );
 
+   assert(nodeprudata->feat != NULL);
+   SCIP_CALL( SCIPfeatFree(scip, &nodeprudata->feat) );
+
    SCIPfreeBlockMemory(scip, &nodeprudata);
+
+   assert(nodeprudata->feat != NULL);
+   SCIP_CALL( SCIPfeatFree(scip, &nodeprudata->feat) );
+
+   if( nodeprudata->trjfile != NULL)
+      fclose(nodeprudata->trjfile);
 
    SCIPnodepruSetData(nodepru, NULL);
 
@@ -112,6 +129,7 @@ SCIP_DECL_NODEPRUPRUNE(nodepruPruneOracle)
 {
    SCIP_NODEPRUDATA* nodeprudata;
    SCIP_SOL* optsol;
+   SCIP_Bool isoptimal;
 
    assert(nodepru != NULL);
    assert(strcmp(SCIPnodepruGetName(nodepru), NODEPRU_NAME) == 0);
@@ -123,11 +141,28 @@ SCIP_DECL_NODEPRUPRUNE(nodepruPruneOracle)
    optsol = nodeprudata->optsol;
    assert(optsol != NULL);
 
-   if( SCIPnodeCheckOptimal(scip, optsol, node) )
+   /* don't prune the root */
+   if( SCIPnodeGetDepth(node) == 0 )
       *prune = FALSE;
    else
-      *prune = TRUE;
-   
+   {
+      if( nodeprudata->checkopt )
+         SCIPnodeCheckOptimal(scip, node, optsol);
+      isoptimal = SCIPnodeIsOptimal(node);
+      if( isoptimal )
+         *prune = FALSE;
+      else
+      {
+         SCIPdebugMessage("pruning node: #%"SCIP_LONGINT_FORMAT"\n", SCIPnodeGetNumber(node));
+         *prune = TRUE;
+      }
+
+      if( nodeprudata->trjfile != NULL )
+      {
+         int label = prune ? 1 : -1;
+      }
+   }
+
    return SCIP_OKAY;
 }
 
@@ -168,6 +203,10 @@ SCIP_RETCODE SCIPincludeNodepruOracle(
          "nodepruning/"NODEPRU_NAME"/solfname",
          "name of the optimal solution file",
          &nodeprudata->solfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );
+   SCIP_CALL( SCIPaddStringParam(scip, 
+         "nodepruning/"NODEPRU_NAME"/trjfname",
+         "name of the file to write node pruning trajectories",
+         &nodeprudata->trjfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );
 
    return SCIP_OKAY;
 }

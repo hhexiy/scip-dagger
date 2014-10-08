@@ -26,7 +26,7 @@ typedef enum SCIP_FeatType SCIP_FEATTYPE;
 
 /** node selector features */
 /** features are respective to the depth and the branch direction */
-/* TODO: remove inf; scale of objconstr is off */
+/* TODO: remove inf; scale of objconstr is off; add relative bounds to parent node? */
 enum SCIP_FeatNodesel
 {
    SCIP_FEATNODESEL_LOWERBOUND               = 0,
@@ -41,14 +41,39 @@ enum SCIP_FeatNodesel
    SCIP_FEATNODESEL_BRANCHVAR_PRIO_DOWN      = 9,
    SCIP_FEATNODESEL_BRANCHVAR_PSEUDOCOST     = 10,
    SCIP_FEATNODESEL_BRANCHVAR_INF            = 11,
-   SCIP_FEATNODESEL_RELATIVEBOUND            = 12 
+   SCIP_FEATNODESEL_RELATIVEBOUND            = 12,
+   SCIP_FEATNODESEL_BRANCHVAR_NOCONSTR       = 13  
 };
 typedef enum SCIP_FeatNodesel SCIP_FEATNODESEL;     /**< feature of node */
 
+/** node pruner features */
+/** features are respective to the depth and the branch direction */
+enum SCIP_FeatNodepru
+{
+   SCIP_FEATNODEPRU_GLOBALLOWERBOUND         = 0,
+   SCIP_FEATNODEPRU_GLOBALUPPERBOUND         = 1, 
+   SCIP_FEATNODEPRU_GAP                      = 2,
+   SCIP_FEATNODEPRU_NSOLUTION                = 3,
+   SCIP_FEATNODEPRU_PLUNGEDEPTH              = 4,
+   SCIP_FEATNODEPRU_RELATIVEDEPTH            = 5,
+   SCIP_FEATNODEPRU_RELATIVEBOUND            = 6,
+   SCIP_FEATNODEPRU_RELATIVEESTIMATE         = 7,
+   SCIP_FEATNODEPRU_GAPINF                   = 8,
+   SCIP_FEATNODEPRU_GLOBALUPPERBOUNDINF      = 9, 
+   SCIP_FEATNODEPRU_BRANCHVAR_BOUNDLPDIFF    = 10,
+   SCIP_FEATNODEPRU_BRANCHVAR_ROOTLPDIFF     = 11,
+   SCIP_FEATNODEPRU_BRANCHVAR_PRIO_UP        = 12,
+   SCIP_FEATNODEPRU_BRANCHVAR_PRIO_DOWN      = 13,
+   SCIP_FEATNODEPRU_BRANCHVAR_PSEUDOCOST     = 14,
+   SCIP_FEATNODEPRU_BRANCHVAR_INF            = 15 
+};
+typedef enum SCIP_FeatNodepru SCIP_FEATNODEPRU;     /**< feature of node */
+
+
 typedef struct SCIP_Feat SCIP_FEAT;
 
-#define SCIP_FEATNODESEL_SIZE 13 
-#define SCIP_FEATNODEPRU_SIZE 12 
+#define SCIP_FEATNODESEL_SIZE 14 
+#define SCIP_FEATNODEPRU_SIZE 16 
 
 #ifdef __cplusplus
 }

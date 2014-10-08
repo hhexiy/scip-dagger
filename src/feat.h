@@ -41,6 +41,13 @@ void SCIPfeatDiffLIBSVMPrint(
    SCIP_Bool         negate
    );
 
+/** calculate feature values for the node pruner of this node */
+void SCIPcalcNodepruFeat(
+   SCIP*             scip,
+   SCIP_NODE*        node,
+   SCIP_FEAT*        feat
+   );
+
 /** calculate feature values for the node selector of this node */
 extern
 void SCIPcalcNodeselFeat(

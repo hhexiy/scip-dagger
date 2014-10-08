@@ -11,6 +11,7 @@
 #include "scip/tree.h"
 #include "scip/var.h"
 #include "scip/stat.h"
+#include "scip/set.h"
 #include "scip/struct_scip.h"
 
 /** copy feature vector value */
@@ -84,6 +85,107 @@ SCIP_RETCODE SCIPfeatFree(
    return SCIP_OKAY;
 }
 
+/** calculate feature values for the node pruner of this node */
+void SCIPcalcNodepruFeat(
+   SCIP*             scip,
+   SCIP_NODE*        node,
+   SCIP_FEAT*        feat
+   )
+{
+   SCIP_Real lowerbound;
+   SCIP_Real upperbound;
+   SCIP_Bool upperboundinf;
+   SCIP_Real rootlowerbound;
+   SCIP_VAR* branchvar;
+   SCIP_COL* branchvarcol;
+   SCIP_BOUNDCHG* boundchgs;
+   SCIP_BRANCHDIR branchdirpreferred;
+   SCIP_Real branchbound;
+   SCIP_Bool haslp;
+   SCIP_Real varsol;
+   SCIP_Real varrootsol;
+   SCIP_Real varobj;                /**< coefficent in the objective function */
+
+   assert(node != NULL);
+   assert(SCIPnodeGetDepth(node) != 0);
+   assert(feat != NULL);
+   assert(feat->maxdepth != 0);
+
+   boundchgs = node->domchg->domchgbound.boundchgs;
+   assert(boundchgs != NULL);
+   assert(boundchgs[0].boundchgtype == SCIP_BOUNDCHGTYPE_BRANCHING);
+
+   feat->depth = SCIPnodeGetDepth(node);
+
+   lowerbound = SCIPgetLowerbound(scip);
+   assert(!SCIPsetIsInfinity(scip->set, lowerbound));
+
+   upperbound = SCIPgetUpperbound(scip);
+   if( SCIPsetIsInfinity(scip->set, upperbound)
+      || SCIPsetIsInfinity(scip->set, -upperbound) )
+      upperboundinf = TRUE;
+
+   rootlowerbound = REALABS(scip->stat->rootlowerbound);
+   if( SCIPsetIsZero(scip->set, rootlowerbound) )
+      rootlowerbound = 0.0001;
+   assert(!SCIPsetIsInfinity(scip->set, rootlowerbound));
+
+   /* currently only support branching on one variable */
+   branchvar = boundchgs[0].var; 
+   branchbound = boundchgs[0].newbound;
+   branchdirpreferred = SCIPvarGetBranchDirection(branchvar);
+   branchvarcol = SCIPvarGetCol(branchvar);
+   varobj = SCIPcolGetObj(branchvarcol);
+
+   haslp = SCIPtreeHasFocusNodeLP(scip->tree);
+   varsol = SCIPvarGetSol(branchvar, haslp);
+   varrootsol = SCIPvarGetRootSol(branchvar);
+
+   feat->boundtype = boundchgs[0].boundtype;
+
+   /* calculate features */
+   /* global features */
+   if( SCIPsetIsEQ(scip->set, upperbound, lowerbound) )
+      feat->vals[SCIP_FEATNODEPRU_GAP] = 0;
+   else if( SCIPsetIsZero(scip->set, lowerbound)
+      || upperboundinf ) 
+      feat->vals[SCIP_FEATNODEPRU_GAPINF] = 1;
+   else
+      feat->vals[SCIP_FEATNODEPRU_GAP] = (upperbound - lowerbound)/REALABS(lowerbound);
+
+   feat->vals[SCIP_FEATNODEPRU_GLOBALLOWERBOUND] = lowerbound / rootlowerbound;
+   if( upperboundinf )
+      feat->vals[SCIP_FEATNODEPRU_GLOBALUPPERBOUNDINF] = 1;
+   else
+      feat->vals[SCIP_FEATNODEPRU_GLOBALUPPERBOUND] = upperbound / rootlowerbound;
+
+   feat->vals[SCIP_FEATNODEPRU_NSOLUTION] = SCIPgetNSolsFound(scip);
+   feat->vals[SCIP_FEATNODEPRU_PLUNGEDEPTH] = SCIPgetPlungeDepth(scip) / feat->maxdepth;
+   feat->vals[SCIP_FEATNODEPRU_RELATIVEDEPTH] = feat->depth / feat->maxdepth;
+
+   /* node features */
+   if( upperboundinf )
+      upperbound = lowerbound + 0.2 * (upperbound - lowerbound);
+   feat->vals[SCIP_FEATNODEPRU_RELATIVEBOUND] = SCIPnodeGetLowerbound(node) / (upperbound - lowerbound);
+   feat->vals[SCIP_FEATNODEPRU_RELATIVEESTIMATE] = SCIPnodeGetEstimate(node) / (upperbound - lowerbound);
+
+   /* branch var features */
+   feat->vals[SCIP_FEATNODESEL_BRANCHVAR_BOUNDLPDIFF] = branchbound - varsol;
+   feat->vals[SCIP_FEATNODESEL_BRANCHVAR_ROOTLPDIFF] = varrootsol - varsol;
+
+   if( branchdirpreferred == SCIP_BRANCHDIR_DOWNWARDS )
+      feat->vals[SCIP_FEATNODESEL_BRANCHVAR_PRIO_DOWN] = 1;
+   else if(branchdirpreferred == SCIP_BRANCHDIR_UPWARDS ) 
+      feat->vals[SCIP_FEATNODESEL_BRANCHVAR_PRIO_UP] = 1;
+
+   feat->vals[SCIP_FEATNODESEL_BRANCHVAR_PSEUDOCOST] = SCIPvarGetPseudocost(branchvar, scip->stat, branchbound - varsol) / ABS(varobj);
+
+   feat->vals[SCIP_FEATNODESEL_BRANCHVAR_INF] = 
+      feat->boundtype == SCIP_BOUNDTYPE_LOWER ? 
+      SCIPvarGetAvgInferences(branchvar, scip->stat, SCIP_BRANCHDIR_UPWARDS) / feat->maxdepth : 
+      SCIPvarGetAvgInferences(branchvar, scip->stat, SCIP_BRANCHDIR_DOWNWARDS) / feat->maxdepth;
+}
+
 /** calculate feature values for the node selector of this node */
 void SCIPcalcNodeselFeat(
    SCIP*             scip,
@@ -95,7 +197,7 @@ void SCIPcalcNodeselFeat(
    SCIP_Real nodelowerbound;
    SCIP_Real rootlowerbound;
    SCIP_Real lowerbound;            /**< global lower bound */
-   SCIP_Real cutoffbound;           /**< global upper bound */
+   SCIP_Real upperbound;           /**< global upper bound */
    SCIP_VAR* branchvar;
    SCIP_COL* branchvarcol;
    SCIP_BOUNDCHG* boundchgs;
@@ -119,13 +221,17 @@ void SCIPcalcNodeselFeat(
    /* extract necessary information */
    nodetype = SCIPnodeGetType(node);
    nodelowerbound = SCIPnodeGetLowerbound(node);
-   rootlowerbound = SCIPgetLowerboundRoot(scip);
-   if( rootlowerbound == 0 )
-      rootlowerbound = 0.1;
+   rootlowerbound = REALABS(scip->stat->rootlowerbound);
+   if( SCIPsetIsZero(scip->set, rootlowerbound) )
+      rootlowerbound = 0.0001;
+   assert(!SCIPsetIsInfinity(scip->set, rootlowerbound));
    lowerbound = SCIPgetLowerbound(scip);
-   cutoffbound = SCIPgetCutoffbound(scip);
+   upperbound = SCIPgetUpperbound(scip);
+   /* if we didn't find a solution yet, the upper bound is usually very bad:
+    * use only 20% of the gap as upper bound
+    */
    if( SCIPgetNSolsFound(scip) == 0 )
-      cutoffbound = lowerbound + 0.2 * (cutoffbound - lowerbound);
+      upperbound = lowerbound + 0.2 * (upperbound - lowerbound);
 
    /* currently only support branching on one variable */
    branchvar = boundchgs[0].var; 
@@ -134,8 +240,6 @@ void SCIPcalcNodeselFeat(
    branchvarcol = SCIPvarGetCol(branchvar);
    varobj = SCIPcolGetObj(branchvarcol);
    varcolsize = SCIPcolGetNNonz(branchvarcol);
-   if( varcolsize == 0 )
-      varcolsize = 0.1;
 
    haslp = SCIPtreeHasFocusNodeLP(scip->tree);
    varsol = SCIPvarGetSol(branchvar, haslp);
@@ -151,8 +255,8 @@ void SCIPcalcNodeselFeat(
    feat->vals[SCIP_FEATNODESEL_ESTIMATE] = 
       SCIPnodeGetEstimate(node) / rootlowerbound;
 
-   if( cutoffbound - lowerbound != 0 )
-      feat->vals[SCIP_FEATNODESEL_RELATIVEBOUND] = (nodelowerbound - lowerbound) / (cutoffbound - lowerbound);
+   if( !SCIPsetIsEQ(scip->set, upperbound, lowerbound) )
+      feat->vals[SCIP_FEATNODESEL_RELATIVEBOUND] = (nodelowerbound - lowerbound) / (upperbound - lowerbound);
 
    if( nodetype == SCIP_NODETYPE_SIBLING )
       feat->vals[SCIP_FEATNODESEL_TYPE_SIBLING] = 1;
@@ -161,7 +265,10 @@ void SCIPcalcNodeselFeat(
    else if( nodetype == SCIP_NODETYPE_LEAF )
       feat->vals[SCIP_FEATNODESEL_TYPE_LEAF] = 1;
 
-   feat->vals[SCIP_FEATNODESEL_BRANCHVAR_OBJCONSTR] = varobj / varcolsize;
+   if( varcolsize == 0 )
+      feat->vals[SCIP_FEATNODESEL_BRANCHVAR_NOCONSTR] = 1;
+   else
+      feat->vals[SCIP_FEATNODESEL_BRANCHVAR_OBJCONSTR] = varobj / varcolsize;
    feat->vals[SCIP_FEATNODESEL_BRANCHVAR_BOUNDLPDIFF] = branchbound - varsol;
    feat->vals[SCIP_FEATNODESEL_BRANCHVAR_ROOTLPDIFF] = varrootsol - varsol;
 

@@ -73,8 +73,6 @@ SCIP_DECL_NODEPRUINITSOL(nodepruInitsolOracle)
   
    SCIP_CALL( SCIPprintSol(scip, nodeprudata->optsol, NULL, FALSE) ); 
 
-   SCIP_CALL( SCIPfeatCreate(scip, &nodeprudata->feat, SCIP_FEATNODEPRU_SIZE) );
-
    if( strcmp(SCIPnodeselGetName(SCIPgetNodesel(scip)), "oracle") == 0 ||
        strcmp(SCIPnodeselGetName(SCIPgetNodesel(scip)), "dagger") == 0 )
       nodeprudata->checkopt = FALSE;
@@ -89,7 +87,7 @@ SCIP_DECL_NODEPRUINITSOL(nodepruInitsolOracle)
    nodeprudata->feat = NULL;
    SCIP_CALL( SCIPfeatCreate(scip, &nodeprudata->feat, SCIP_FEATNODEPRU_SIZE) );
    assert(nodeprudata->feat != NULL);
-   SCIPfeatSetMaxDepth(nodeprudata->feat, SCIPgetNVars(scip));
+   SCIPfeatSetMaxDepth(nodeprudata->feat, (SCIP_Real)SCIPgetNVars(scip));
   
    return SCIP_OKAY;
 }
@@ -107,16 +105,13 @@ SCIP_DECL_NODEPRUFREE(nodepruFreeOracle)
    assert(nodeprudata->optsol != NULL);
    SCIP_CALL( SCIPfreeSolSelf(scip, &nodeprudata->optsol) );
 
-   assert(nodeprudata->feat != NULL);
-   SCIP_CALL( SCIPfeatFree(scip, &nodeprudata->feat) );
-
-   SCIPfreeBlockMemory(scip, &nodeprudata);
-
-   assert(nodeprudata->feat != NULL);
-   SCIP_CALL( SCIPfeatFree(scip, &nodeprudata->feat) );
+   if( nodeprudata->feat != NULL )
+      SCIP_CALL( SCIPfeatFree(scip, &nodeprudata->feat) );
 
    if( nodeprudata->trjfile != NULL)
       fclose(nodeprudata->trjfile);
+
+   SCIPfreeBlockMemory(scip, &nodeprudata);
 
    SCIPnodepruSetData(nodepru, NULL);
 
@@ -143,7 +138,10 @@ SCIP_DECL_NODEPRUPRUNE(nodepruPruneOracle)
 
    /* don't prune the root */
    if( SCIPnodeGetDepth(node) == 0 )
+   {
       *prune = FALSE;
+      return SCIP_OKAY;
+   }
    else
    {
       if( nodeprudata->checkopt )
@@ -157,11 +155,17 @@ SCIP_DECL_NODEPRUPRUNE(nodepruPruneOracle)
          *prune = TRUE;
       }
 
+#ifndef SCIP_DEBUG
       if( nodeprudata->trjfile != NULL )
       {
-         int label = prune ? 1 : -1;
+#endif
+         SCIPdebugMessage("node pruning feature of node #%"SCIP_LONGINT_FORMAT"\n", SCIPnodeGetNumber(node));
+         SCIPcalcNodepruFeat(scip, node, nodeprudata->feat);
+         SCIPfeatLIBSVMPrint(scip, nodeprudata->trjfile, nodeprudata->feat, *prune ? 1 : -1);
       }
+#ifndef SCIP_DEBUG
    }
+#endif
 
    return SCIP_OKAY;
 }

@@ -14,7 +14,7 @@
  */
 
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
-
+#define SCIP_DEBUG
 #include <assert.h>
 #include <string.h>
 #include "nodesel_oracle.h"
@@ -283,7 +283,7 @@ SCIP_RETCODE SCIPreadOptSol(
       /* display result */
       obj = SCIPgetSolOrigObj(scip, *sol);
       SCIPverbMessage(scip, SCIP_VERBLEVEL_NORMAL, NULL, "optimal solution from solution file <%s> was %s\n",
-         fname, "read, will be used in the oracle node selector");
+         fname, "read");
       SCIPverbMessage(scip, SCIP_VERBLEVEL_NORMAL, NULL, "objective: %f\n", obj);
       return SCIP_OKAY;
    }
@@ -337,7 +337,7 @@ SCIP_DECL_NODESELINITSOL(nodeselInitsolOracle)
    nodeseldata->feat = NULL;
    SCIP_CALL( SCIPfeatCreate(scip, &nodeseldata->feat, SCIP_FEATNODESEL_SIZE) );
    assert(nodeseldata->feat != NULL);
-   SCIPfeatSetMaxDepth(nodeseldata->feat, SCIPgetNVars(scip));
+   SCIPfeatSetMaxDepth(nodeseldata->feat, (SCIP_Real)SCIPgetNVars(scip));
   
    /* create optimal node feat */
    nodeseldata->optfeat = NULL;
@@ -367,10 +367,10 @@ SCIP_DECL_NODESELFREE(nodeselFreeOracle)
    if( nodeseldata->trjfile != NULL)
       fclose(nodeseldata->trjfile);
 
-   assert(nodeseldata->feat != NULL);
-   SCIP_CALL( SCIPfeatFree(scip, &nodeseldata->feat) );
-   assert(nodeseldata->optfeat != NULL);
-   SCIP_CALL( SCIPfeatFree(scip, &nodeseldata->optfeat) );
+   if( nodeseldata->feat != NULL )
+      SCIP_CALL( SCIPfeatFree(scip, &nodeseldata->feat) );
+   if( nodeseldata->optfeat != NULL )
+      SCIP_CALL( SCIPfeatFree(scip, &nodeseldata->optfeat) );
    
    SCIPfreeBlockMemory(scip, &nodeseldata);
 
@@ -418,8 +418,11 @@ SCIP_DECL_NODESELSELECT(nodeselSelectOracle)
    }
 
    /* write examples */
+#ifndef SCIP_DEBUG
    if( nodeseldata->trjfile != NULL )
    {
+#endif
+      SCIPdebugMessage("node selection feature\n");
       if( optchild != -1 )
       {
          /* new optimal node */
@@ -461,7 +464,9 @@ SCIP_DECL_NODESELSELECT(nodeselSelectOracle)
             SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
          }
       }
+#ifndef SCIP_DEBUG
    }
+#endif
 
    *selnode = SCIPgetBestNode(scip);
 

@@ -28,7 +28,7 @@ struct SCIP_Feat
    SCIP_Real      rootlpobj;
    SCIP_Real      sumobjcoeff;         /**< sum of coefficients of the objective */
    int            nconstrs;            /**< number of constraints of the problem */
-   SCIP_Real      maxdepth;            /**< maximum depth of the B&B tree; use SCIP_Real since it's used as the divider */
+   int            maxdepth;            /**< maximum depth of the B&B tree; use SCIP_Real since it's used as the divider */
    int            depth;
    SCIP_BOUNDTYPE boundtype;
    int            size;

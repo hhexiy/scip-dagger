@@ -1,5 +1,5 @@
 /**@file   nodepru_oracle.c
- * @brief  oracle node pruner which prunes all non-optimal node 
+ * @brief  oracle node pruner which prunes all non-optimal nodes
  * @author He He 
  *
  * the UCT node selection rule selects the next leaf according to a mixed score of the node's actual lower bound
@@ -159,8 +159,8 @@ SCIP_DECL_NODEPRUPRUNE(nodepruPruneOracle)
       if( nodeprudata->trjfile != NULL )
       {
 #endif
-         SCIPdebugMessage("node pruning feature of node #%"SCIP_LONGINT_FORMAT"\n", SCIPnodeGetNumber(node));
          SCIPcalcNodepruFeat(scip, node, nodeprudata->feat);
+         SCIPdebugMessage("node pruning feature of node #%"SCIP_LONGINT_FORMAT"\n", SCIPnodeGetNumber(node));
          SCIPfeatLIBSVMPrint(scip, nodeprudata->trjfile, nodeprudata->feat, *prune ? 1 : -1);
       }
 #ifndef SCIP_DEBUG

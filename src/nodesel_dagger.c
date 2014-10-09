@@ -49,10 +49,35 @@ struct SCIP_NodeselData
    FILE*              trjfile;
    SCIP_FEAT*         feat;
    SCIP_FEAT*         optfeat;
+#ifndef NDEBUG
    SCIP_Longint       optnodenumber;      /**< successively assigned number of the node */
+#endif
    SCIP_Bool          negate;
+   int                nerrors;            /**< number of wrong ranking of a pair of nodes */
+   int                ncomps;              /**< total number of comparisons */
 };
 
+void SCIPnodeseldaggerPrintStatistics(
+   SCIP*                 scip,
+   SCIP_NODESEL*         nodesel,
+   FILE*                 file
+   )
+{
+   SCIP_NODESELDATA* nodeseldata;
+
+   assert(scip != NULL);
+   assert(nodesel != NULL);
+
+   nodeseldata = SCIPnodeselGetData(nodesel);
+   assert(nodeseldata != NULL);
+
+   SCIPmessageFPrintInfo(scip->messagehdlr, file, 
+         "Node selector      :\n");
+   SCIPmessageFPrintInfo(scip->messagehdlr, file, 
+         "  comp error rate  : %d/%d\n", nodeseldata->nerrors, nodeseldata->ncomps);
+   SCIPmessageFPrintInfo(scip->messagehdlr, file, 
+         "  selection time   : %10.2f\n", SCIPnodeselGetTime(nodesel));
+}
 
 /** copy method for node selector plugins (called when SCIP copies plugins) */
 static
@@ -106,8 +131,13 @@ SCIP_DECL_NODESELINITSOL(nodeselInitsolDagger)
    assert(nodeseldata->optfeat != NULL);
    SCIPfeatSetMaxDepth(nodeseldata->optfeat, SCIPgetNVars(scip));
 
+#ifndef NDEBUG
    nodeseldata->optnodenumber = -1;
+#endif
    nodeseldata->negate = TRUE;
+
+   nodeseldata->nerrors = 0;
+   nodeseldata->ncomps = 0;
 
    return SCIP_OKAY;
 }
@@ -130,8 +160,8 @@ SCIP_DECL_NODESELFREE(nodeselFreeDagger)
 
    assert(nodeseldata->feat != NULL);
    SCIP_CALL( SCIPfeatFree(scip, &nodeseldata->feat) );
-   assert(nodeseldata->optfeat != NULL);
-   SCIP_CALL( SCIPfeatFree(scip, &nodeseldata->optfeat) );
+   if( nodeseldata->optfeat != NULL )
+      SCIP_CALL( SCIPfeatFree(scip, &nodeseldata->optfeat) );
 
    assert(nodeseldata->policy != NULL);
    SCIP_CALL( SCIPpolicyFree(scip, &nodeseldata->policy) );
@@ -181,8 +211,10 @@ SCIP_DECL_NODESELSELECT(nodeselSelectDagger)
       SCIPnodeSetOptchecked(children[i]);
       if( SCIPnodeIsOptimal(children[i]) )
       {
+#ifndef NDEBUG
          SCIPdebugMessage("opt node #%"SCIP_LONGINT_FORMAT"\n", SCIPnodeGetNumber(children[i]));
          nodeseldata->optnodenumber = SCIPnodeGetNumber(children[i]);
+#endif
          optchild = i;
       }
    }
@@ -200,7 +232,9 @@ SCIP_DECL_NODESELSELECT(nodeselSelectDagger)
             {
                SCIPcalcNodeselFeat(scip, children[i], nodeseldata->feat);
                nodeseldata->negate ^= 1;
+#ifndef NDEBUG
                SCIPdebugMessage("example  #%d #%d\n", (int)nodeseldata->optnodenumber, (int)SCIPnodeGetNumber(children[i]));
+#endif
                SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
                SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
             }
@@ -209,7 +243,9 @@ SCIP_DECL_NODESELSELECT(nodeselSelectDagger)
          {
             SCIPcalcNodeselFeat(scip, siblings[i], nodeseldata->feat);
             nodeseldata->negate ^= 1;
+#ifndef NDEBUG
             SCIPdebugMessage("example  #%d #%d\n", (int)nodeseldata->optnodenumber, (int)SCIPnodeGetNumber(siblings[i]));
+#endif
             SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
             SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
          }
@@ -217,7 +253,9 @@ SCIP_DECL_NODESELSELECT(nodeselSelectDagger)
          {
             SCIPcalcNodeselFeat(scip, leaves[i], nodeseldata->feat);
             nodeseldata->negate ^= 1;
+#ifndef NDEBUG
             SCIPdebugMessage("example  #%d #%d\n", (int)nodeseldata->optnodenumber, (int)SCIPnodeGetNumber(leaves[i]));
+#endif
             SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
             SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
          }
@@ -230,7 +268,9 @@ SCIP_DECL_NODESELSELECT(nodeselSelectDagger)
          {
             SCIPcalcNodeselFeat(scip, children[i], nodeseldata->feat);
             nodeseldata->negate ^= 1;
+#ifndef NDEBUG
             SCIPdebugMessage("example  #%d #%d\n", (int)nodeseldata->optnodenumber, (int)SCIPnodeGetNumber(children[i]));
+#endif
             SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
             SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
          }
@@ -248,6 +288,10 @@ SCIP_DECL_NODESELCOMP(nodeselCompDagger)
 {  /*lint --e{715}*/
    SCIP_Real score1;
    SCIP_Real score2;
+   SCIP_Bool isopt1;
+   SCIP_Bool isopt2;
+   SCIP_NODESELDATA* nodeseldata;
+   int result;
 
    assert(nodesel != NULL);
    assert(strcmp(SCIPnodeselGetName(nodesel), NODESEL_NAME) == 0);
@@ -263,9 +307,9 @@ SCIP_DECL_NODESELCOMP(nodeselCompDagger)
    assert(score2 != 0);
 
    if( SCIPisGT(scip, score1, score2) )
-      return -1;
+      result = -1;
    else if( SCIPisLT(scip, score1, score2) )
-      return +1;
+      result = +1;
    else
    {
       int depth1;
@@ -274,9 +318,9 @@ SCIP_DECL_NODESELCOMP(nodeselCompDagger)
       depth1 = SCIPnodeGetDepth(node1);
       depth2 = SCIPnodeGetDepth(node2);
       if( depth1 > depth2 )
-         return -1;
+         result = -1;
       else if( depth1 < depth2 )
-         return +1;
+         result = +1;
       else
       {
          SCIP_Real lowerbound1;
@@ -285,13 +329,23 @@ SCIP_DECL_NODESELCOMP(nodeselCompDagger)
          lowerbound1 = SCIPnodeGetLowerbound(node1);
          lowerbound2 = SCIPnodeGetLowerbound(node2);
          if( SCIPisLT(scip, lowerbound1, lowerbound2) )
-            return -1;
+            result = -1;
          else if( SCIPisGT(scip, lowerbound1, lowerbound2) )
-            return +1;
+            result = +1;
          else
-            return 0;
+            result = 0;
       }
    }
+
+   nodeseldata = SCIPnodeselGetData(nodesel);
+   assert(nodeseldata != NULL);
+   isopt1 = SCIPnodeIsOptimal(node1);
+   isopt2 = SCIPnodeIsOptimal(node2);
+   if( (isopt1 && result == 1) || (isopt2 && result == -1) )
+      nodeseldata->nerrors++;
+   nodeseldata->ncomps++;
+
+   return result;
 }
 
 /*
@@ -312,6 +366,8 @@ SCIP_RETCODE SCIPincludeNodeselDagger(
    nodesel = NULL;
    nodeseldata->optsol = NULL;
    nodeseldata->solfname = NULL;
+   nodeseldata->trjfname = NULL;
+   nodeseldata->polfname = NULL;
 
    /* use SCIPincludeNodeselBasic() plus setter functions if you want to set callbacks one-by-one and your code should
     * compile independent of new callbacks being added in future SCIP versions

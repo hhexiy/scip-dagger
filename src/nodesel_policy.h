@@ -1,4 +1,4 @@
-/**@file   nodesel_dagger.h
+/**@file   nodesel_policy.h
  * @ingroup NODESELECTORS
  * @brief  
  * @author He He 
@@ -17,8 +17,8 @@
 
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
 
-#ifndef __SCIP_NODESEL_DAGGER_H__
-#define __SCIP_NODESEL_DAGGER_H__
+#ifndef __SCIP_NODESEL_POLICY_H__
+#define __SCIP_NODESEL_POLICY_H__
 
 
 #include "scip/scip.h"
@@ -28,14 +28,14 @@
 extern "C" {
 #endif
 
-/** creates the dagger node selector and includes it in SCIP */
+/** creates the policy node selector and includes it in SCIP */
 EXTERN
-SCIP_RETCODE SCIPincludeNodeselDagger(
+SCIP_RETCODE SCIPincludeNodeselPolicy(
    SCIP*                 scip                /**< SCIP data structure */
    );
 
 EXTERN
-void SCIPnodeseldaggerPrintStatistics(
+void SCIPnodeselpolicyPrintStatistics(
    SCIP*                 scip,
    SCIP_NODESEL*         nodesel,
    FILE*                 file

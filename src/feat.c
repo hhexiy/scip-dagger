@@ -160,8 +160,8 @@ void SCIPcalcNodepruFeat(
       feat->vals[SCIP_FEATNODEPRU_GLOBALUPPERBOUND] = upperbound / rootlowerbound;
 
    feat->vals[SCIP_FEATNODEPRU_NSOLUTION] = SCIPgetNSolsFound(scip);
-   feat->vals[SCIP_FEATNODEPRU_PLUNGEDEPTH] = SCIPgetPlungeDepth(scip) / feat->maxdepth;
-   feat->vals[SCIP_FEATNODEPRU_RELATIVEDEPTH] = feat->depth / feat->maxdepth;
+   feat->vals[SCIP_FEATNODEPRU_PLUNGEDEPTH] = SCIPgetPlungeDepth(scip) / (SCIP_Real)feat->maxdepth;
+   feat->vals[SCIP_FEATNODEPRU_RELATIVEDEPTH] = feat->depth / (SCIP_Real)feat->maxdepth;
 
    /* node features */
    if( upperboundinf )
@@ -182,8 +182,8 @@ void SCIPcalcNodepruFeat(
 
    feat->vals[SCIP_FEATNODESEL_BRANCHVAR_INF] = 
       feat->boundtype == SCIP_BOUNDTYPE_LOWER ? 
-      SCIPvarGetAvgInferences(branchvar, scip->stat, SCIP_BRANCHDIR_UPWARDS) / feat->maxdepth : 
-      SCIPvarGetAvgInferences(branchvar, scip->stat, SCIP_BRANCHDIR_DOWNWARDS) / feat->maxdepth;
+      SCIPvarGetAvgInferences(branchvar, scip->stat, SCIP_BRANCHDIR_UPWARDS) / (SCIP_Real)feat->maxdepth : 
+      SCIPvarGetAvgInferences(branchvar, scip->stat, SCIP_BRANCHDIR_DOWNWARDS) / (SCIP_Real)feat->maxdepth;
 }
 
 /** calculate feature values for the node selector of this node */
@@ -281,8 +281,8 @@ void SCIPcalcNodeselFeat(
 
    feat->vals[SCIP_FEATNODESEL_BRANCHVAR_INF] = 
       feat->boundtype == SCIP_BOUNDTYPE_LOWER ? 
-      SCIPvarGetAvgInferences(branchvar, scip->stat, SCIP_BRANCHDIR_UPWARDS) / feat->maxdepth : 
-      SCIPvarGetAvgInferences(branchvar, scip->stat, SCIP_BRANCHDIR_DOWNWARDS) / feat->maxdepth;
+      SCIPvarGetAvgInferences(branchvar, scip->stat, SCIP_BRANCHDIR_UPWARDS) / (SCIP_Real)feat->maxdepth : 
+      SCIPvarGetAvgInferences(branchvar, scip->stat, SCIP_BRANCHDIR_DOWNWARDS) / (SCIP_Real)feat->maxdepth;
 
 }
 

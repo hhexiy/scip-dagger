@@ -13,10 +13,10 @@
 /*                                                                           */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-/**@file   nodesel_uct.h
- * @ingroup NODEPRUECTORS
- * @brief  uct node selector which balances exploration and exploitation by considering node visits
- * @author Gregor Hendel
+/**@file   nodepru_oracle.h
+ * @ingroup NODEPRUNERS
+ * @brief  node pruner which prunes all non-optimal nodes 
+ * @author He He 
  *
  * the UCT node selection rule selects the next leaf according to a mixed score of the node's actual lower bound
  * and the number of times it has been visited so far compared to its parent node.

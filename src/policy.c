@@ -7,6 +7,7 @@
 
 #include "scip/def.h"
 #include "feat.h"
+#include "struct_feat.h"
 #include "policy.h"
 
 #define HEADERSIZE_LIBSVM       6 

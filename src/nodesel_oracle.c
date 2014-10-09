@@ -44,7 +44,9 @@ struct SCIP_NodeselData
    FILE*              trjfile;
    SCIP_FEAT*         feat;
    SCIP_FEAT*         optfeat;
+#ifndef NDEBUG 
    SCIP_Longint       optnodenumber;             /**< successively assigned number of the node */
+#endif
    SCIP_Bool          negate;
 };
 
@@ -337,7 +339,7 @@ SCIP_DECL_NODESELINITSOL(nodeselInitsolOracle)
    nodeseldata->feat = NULL;
    SCIP_CALL( SCIPfeatCreate(scip, &nodeseldata->feat, SCIP_FEATNODESEL_SIZE) );
    assert(nodeseldata->feat != NULL);
-   SCIPfeatSetMaxDepth(nodeseldata->feat, (SCIP_Real)SCIPgetNVars(scip));
+   SCIPfeatSetMaxDepth(nodeseldata->feat, SCIPgetNVars(scip));
   
    /* create optimal node feat */
    nodeseldata->optfeat = NULL;
@@ -345,7 +347,9 @@ SCIP_DECL_NODESELINITSOL(nodeselInitsolOracle)
    assert(nodeseldata->optfeat != NULL);
    SCIPfeatSetMaxDepth(nodeseldata->optfeat, SCIPgetNVars(scip));
 
+#ifndef NDEBUG 
    nodeseldata->optnodenumber = -1;
+#endif
    nodeseldata->negate = TRUE;
 
    return SCIP_OKAY;
@@ -412,7 +416,9 @@ SCIP_DECL_NODESELSELECT(nodeselSelectOracle)
       if( SCIPnodeIsOptimal(children[i]) )
       {
          SCIPdebugMessage("opt node #%"SCIP_LONGINT_FORMAT"\n", SCIPnodeGetNumber(children[i]));
+#ifndef NDEBUG 
          nodeseldata->optnodenumber = SCIPnodeGetNumber(children[i]);
+#endif
          optchild = i;
       }
    }

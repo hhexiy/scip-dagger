@@ -103,7 +103,7 @@ SCIP_DECL_NODEPRUINITSOL(nodepruInitsolPolicy)
    nodeprudata->feat = NULL;
    SCIP_CALL( SCIPfeatCreate(scip, &nodeprudata->feat, SCIP_FEATNODEPRU_SIZE) );
    assert(nodeprudata->feat != NULL);
-   SCIPfeatSetMaxDepth(nodeprudata->feat, SCIPgetNVars(scip));
+   SCIPfeatSetMaxDepth(nodeprudata->feat, SCIPgetNBinVars(scip) + SCIPgetNIntVars(scip));
 
    nodeprudata->nprunes = 0;
  

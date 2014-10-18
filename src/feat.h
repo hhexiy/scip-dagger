@@ -26,6 +26,7 @@ extern
 void SCIPfeatLIBSVMPrint(
    SCIP*             scip,
    FILE*             file,
+   FILE*             wfile,
    SCIP_FEAT*        feat,
    int               label
    );
@@ -35,6 +36,7 @@ extern
 void SCIPfeatDiffLIBSVMPrint(
    SCIP*             scip,
    FILE*             file,
+   FILE*             wfile,
    SCIP_FEAT*        feat1,
    SCIP_FEAT*        feat2,
    int               label,
@@ -42,6 +44,7 @@ void SCIPfeatDiffLIBSVMPrint(
    );
 
 /** calculate feature values for the node pruner of this node */
+extern
 void SCIPcalcNodepruFeat(
    SCIP*             scip,
    SCIP_NODE*        node,
@@ -59,6 +62,12 @@ void SCIPcalcNodeselFeat(
 /** returns offset of the feature index */
 extern
 int SCIPfeatGetOffset(
+   SCIP_FEAT* feat
+   );
+
+/** returns the weight of the example */
+extern
+SCIP_Real SCIPfeatGetWeight(
    SCIP_FEAT* feat
    );
 

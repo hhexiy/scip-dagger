@@ -86,7 +86,7 @@ SCIP_DECL_NODESELINITSOL(nodeselInitsolPolicy)
    nodeseldata->feat = NULL;
    SCIP_CALL( SCIPfeatCreate(scip, &nodeseldata->feat, SCIP_FEATNODESEL_SIZE) );
    assert(nodeseldata->feat != NULL);
-   SCIPfeatSetMaxDepth(nodeseldata->feat, SCIPgetNVars(scip));
+   SCIPfeatSetMaxDepth(nodeseldata->feat, SCIPgetNBinVars(scip) + SCIPgetNIntVars(scip));
   
    return SCIP_OKAY;
 }

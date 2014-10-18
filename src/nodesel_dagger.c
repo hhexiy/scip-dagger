@@ -14,7 +14,6 @@
  */
 
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
-#define SCIP_DEBUG
 #include <assert.h>
 #include <string.h>
 #include "nodesel_dagger.h"
@@ -46,6 +45,7 @@ struct SCIP_NodeselData
    char*              polfname;           /**< name of the solution file */
    SCIP_POLICY*       policy;
    char*              trjfname;           /**< name of the trajectory file */
+   FILE*              wfile;
    FILE*              trjfile;
    SCIP_FEAT*         feat;
    SCIP_FEAT*         optfeat;
@@ -105,7 +105,9 @@ SCIP_DECL_NODESELINITSOL(nodeselInitsolDagger)
    nodeseldata->optsol = NULL;
    SCIP_CALL( SCIPreadOptSol(scip, nodeseldata->solfname, &nodeseldata->optsol) );
    assert(nodeseldata->optsol != NULL);
+#ifdef SCIP_DEBUG
    SCIP_CALL( SCIPprintSol(scip, nodeseldata->optsol, NULL, FALSE) ); 
+#endif
 
    /* read policy */
    SCIP_CALL( SCIPpolicyCreate(scip, &nodeseldata->policy) );
@@ -117,19 +119,25 @@ SCIP_DECL_NODESELINITSOL(nodeselInitsolDagger)
    /* open in appending mode for writing training file from multiple problems */
    nodeseldata->trjfile = NULL;
    if( nodeseldata->trjfname != NULL )
+   {
+      char wfname[100];
+      strcpy(wfname, nodeseldata->trjfname);
+      strcat(wfname, ".weight");
+      nodeseldata->wfile = fopen(wfname, "a");
       nodeseldata->trjfile = fopen(nodeseldata->trjfname, "a");
+   }
 
    /* create feat */
    nodeseldata->feat = NULL;
    SCIP_CALL( SCIPfeatCreate(scip, &nodeseldata->feat, SCIP_FEATNODESEL_SIZE) );
    assert(nodeseldata->feat != NULL);
-   SCIPfeatSetMaxDepth(nodeseldata->feat, SCIPgetNVars(scip));
+   SCIPfeatSetMaxDepth(nodeseldata->feat, SCIPgetNBinVars(scip) + SCIPgetNIntVars(scip));
   
    /* create optimal node feat */
    nodeseldata->optfeat = NULL;
    SCIP_CALL( SCIPfeatCreate(scip, &nodeseldata->optfeat, SCIP_FEATNODESEL_SIZE) );
    assert(nodeseldata->optfeat != NULL);
-   SCIPfeatSetMaxDepth(nodeseldata->optfeat, SCIPgetNVars(scip));
+   SCIPfeatSetMaxDepth(nodeseldata->optfeat, SCIPgetNBinVars(scip) + SCIPgetNIntVars(scip));
 
 #ifndef NDEBUG
    nodeseldata->optnodenumber = -1;
@@ -156,7 +164,10 @@ SCIP_DECL_NODESELFREE(nodeselFreeDagger)
    SCIP_CALL( SCIPfreeSolSelf(scip, &nodeseldata->optsol) );
   
    if( nodeseldata->trjfile != NULL)
+   {
+      fclose(nodeseldata->wfile);
       fclose(nodeseldata->trjfile);
+   }
 
    assert(nodeseldata->feat != NULL);
    SCIP_CALL( SCIPfeatFree(scip, &nodeseldata->feat) );
@@ -235,8 +246,7 @@ SCIP_DECL_NODESELSELECT(nodeselSelectDagger)
 #ifndef NDEBUG
                SCIPdebugMessage("example  #%d #%d\n", (int)nodeseldata->optnodenumber, (int)SCIPnodeGetNumber(children[i]));
 #endif
-               SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
-               SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+               SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->wfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
             }
          }
          for( i = 0; i < nsiblings; i++ )
@@ -246,8 +256,7 @@ SCIP_DECL_NODESELSELECT(nodeselSelectDagger)
 #ifndef NDEBUG
             SCIPdebugMessage("example  #%d #%d\n", (int)nodeseldata->optnodenumber, (int)SCIPnodeGetNumber(siblings[i]));
 #endif
-            SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
-            SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+            SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->wfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
          }
          for( i = 0; i < nleaves; i++ )
          {
@@ -256,8 +265,7 @@ SCIP_DECL_NODESELSELECT(nodeselSelectDagger)
 #ifndef NDEBUG
             SCIPdebugMessage("example  #%d #%d\n", (int)nodeseldata->optnodenumber, (int)SCIPnodeGetNumber(leaves[i]));
 #endif
-            SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
-            SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+            SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->wfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
          }
       }
       else
@@ -271,8 +279,7 @@ SCIP_DECL_NODESELSELECT(nodeselSelectDagger)
 #ifndef NDEBUG
             SCIPdebugMessage("example  #%d #%d\n", (int)nodeseldata->optnodenumber, (int)SCIPnodeGetNumber(children[i]));
 #endif
-            SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
-            SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+            SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->wfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
          }
       }
    }

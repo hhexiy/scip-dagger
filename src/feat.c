@@ -13,6 +13,7 @@
 #include "scip/stat.h"
 #include "scip/set.h"
 #include "scip/struct_scip.h"
+#include "math.h"
 
 /** copy feature vector value */
 void SCIPfeatCopy(
@@ -50,7 +51,7 @@ SCIP_RETCODE SCIPfeatCreate(
 
    assert(scip != NULL);
    assert(feat != NULL);
-
+   printf("create feat\n");
    SCIP_CALL( SCIPallocBlockMemory(scip, feat) );
 
    SCIP_ALLOC( BMSallocMemoryArray(&(*feat)->vals, size) );
@@ -78,7 +79,7 @@ SCIP_RETCODE SCIPfeatFree(
    assert(scip != NULL);
    assert(feat != NULL);
    assert(*feat != NULL);
-
+   printf("free feat\n");
    BMSfreeMemoryArray(&(*feat)->vals);
    SCIPfreeBlockMemory(scip, feat);
 
@@ -124,6 +125,8 @@ void SCIPcalcNodepruFeat(
    if( SCIPsetIsInfinity(scip->set, upperbound)
       || SCIPsetIsInfinity(scip->set, -upperbound) )
       upperboundinf = TRUE;
+   else
+      upperboundinf = FALSE;
 
    rootlowerbound = REALABS(scip->stat->rootlowerbound);
    if( SCIPsetIsZero(scip->set, rootlowerbound) )
@@ -290,6 +293,7 @@ void SCIPcalcNodeselFeat(
 void SCIPfeatDiffLIBSVMPrint(
    SCIP*             scip,
    FILE*             file,
+   FILE*             wfile,
    SCIP_FEAT*        feat1,
    SCIP_FEAT*        feat2,
    int               label,
@@ -300,6 +304,7 @@ void SCIPfeatDiffLIBSVMPrint(
    int i;
    int offset1;
    int offset2;
+   SCIP_Real weight;
 
    assert(scip != NULL);
    assert(feat1 != NULL);
@@ -307,6 +312,9 @@ void SCIPfeatDiffLIBSVMPrint(
    assert(feat1->depth != 0);
    assert(feat2->depth != 0);
    assert(feat1->size == feat2->size);
+
+   weight = SCIPfeatGetWeight(feat1);
+   SCIPinfoMessage(scip, wfile, "%f\n", weight);  
 
    if( negate )
    {
@@ -357,6 +365,7 @@ void SCIPfeatDiffLIBSVMPrint(
 void SCIPfeatLIBSVMPrint(
    SCIP*             scip,
    FILE*             file,
+   FILE*             wfile,
    SCIP_FEAT*        feat,
    int               label
    )
@@ -364,10 +373,14 @@ void SCIPfeatLIBSVMPrint(
    int size;
    int i;
    int offset;
+   SCIP_Real weight;
 
    assert(scip != NULL);
    assert(feat != NULL);
    assert(feat->depth != 0);
+
+   weight = SCIPfeatGetWeight(feat);
+   SCIPinfoMessage(scip, wfile, "%f\n", weight);  
 
    size = SCIPfeatGetSize(feat);
    offset = SCIPfeatGetOffset(feat);
@@ -455,6 +468,15 @@ void SCIPfeatSetNConstrs(
    assert(feat != NULL);
 
    feat->nconstrs = nconstrs;
+}
+
+/** returns the weight of the example */
+SCIP_Real SCIPfeatGetWeight(
+   SCIP_FEAT* feat
+   )
+{
+   assert(feat != NULL);
+   return 5 * exp(-(feat->depth-1) / (0.6*feat->maxdepth) * 1.61);
 }
 
 int SCIPfeatGetOffset(

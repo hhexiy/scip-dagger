@@ -16,6 +16,44 @@
 #include "nodepru_dagger.h"
 #include "nodepru_policy.h"
 
+/* disable heuristics */
+static
+void disableHeurs(
+   SCIP*                 scip,
+   int                   freq 
+   )
+{
+   int num_heur = 0;
+   SCIP_HEUR** heurs = NULL;
+   int i;
+
+   num_heur = SCIPgetNHeurs( scip );
+   heurs = SCIPgetHeurs( scip );
+   for( i = 0; i < num_heur; i++ )
+   {
+      SCIPheurSetFreq( heurs[i], freq);
+   }
+}
+
+/* disable separators */
+static
+void disableSepas(
+   SCIP*                 scip,
+   int                   freq 
+   )
+{
+   int num_sepa = 0;
+   SCIP_SEPA** sepas = NULL;
+   int i;
+
+   num_sepa = SCIPgetNSepas( scip );
+   sepas = SCIPgetSepas( scip );
+   for( i = 0; i < num_sepa; i++ )
+   {
+      SCIPsepaSetFreq( sepas[i], freq);
+   }
+}
+
 static
 SCIP_RETCODE fromCommandLine(
    SCIP*                 scip,               /**< SCIP data structure */
@@ -69,9 +107,6 @@ SCIP_RETCODE fromCommandLine(
 
    SCIP_CALL( SCIPsolve(scip) );
 
-   SCIPinfoMessage(scip, NULL, "\nprimal solution:\n");
-   SCIPinfoMessage(scip, NULL, "================\n\n");
-   SCIP_CALL( SCIPprintBestSol(scip, NULL, FALSE) );
    if( solfname != NULL )
    {
       FILE* file = fopen(solfname, "w");
@@ -87,7 +122,7 @@ SCIP_RETCODE fromCommandLine(
    SCIPinfoMessage(scip, NULL, "\nStatistics\n");
    SCIPinfoMessage(scip, NULL, "==========\n\n");
 
-   SCIP_CALL( SCIPprintStatistics(scip, NULL) );
+   SCIP_CALL( SCIPprintMyStatistics(scip, NULL) );
 
    /* node selector statistics */
    nodesel = SCIPgetNodesel(scip);
@@ -134,6 +169,7 @@ SCIP_RETCODE processShellArguments(
    char* nodeprupol= NULL;
    SCIP_Bool solrequired = FALSE;
    SCIP_Bool quiet;
+   int freq = 1;                             /**< frequency of heuristics and separators */ 
    SCIP_Bool paramerror;
    int i;
 
@@ -169,6 +205,17 @@ SCIP_RETCODE processShellArguments(
       }
       else if( strcmp(argv[i], "-q") == 0 )
          quiet = TRUE;
+      else if( strcmp(argv[i], "-r") == 0 )
+      {
+         i++;
+         if( i < argc )
+            freq = atoi(argv[i]);
+         else
+         {
+            printf("missing frequency after parameter '-r'\n");
+            paramerror = TRUE;
+         }
+      }
       else if( strcmp(argv[i], "-s") == 0 )
       {
          i++;
@@ -315,6 +362,22 @@ SCIP_RETCODE processShellArguments(
          SCIPsetMessagehdlrQuiet(scip, quiet);
       }
 
+      if( freq < 1 )
+      {
+         /* use most infeasible branching */
+         SCIP_BRANCHRULE* branch_rule = NULL;
+         branch_rule = SCIPfindBranchrule( scip, "mostinf" );
+         SCIP_CALL( SCIPsetBranchrulePriority( scip, branch_rule, 9999999 ) );
+         printf("Using most infeasible branching\n");
+
+         disableHeurs(scip, freq);
+         disableSepas(scip, freq);
+         if( freq == 0 )
+            printf("Using heuristics and separators only at root\n");
+         else if( freq == -1 )
+            printf("Disabled heuristics and separators\n");
+      }
+
       if( logname != NULL )
       {
          SCIPsetMessagehdlrLogfile(scip, logname);
@@ -327,6 +390,7 @@ SCIP_RETCODE processShellArguments(
 
       if( nodepruname != NULL )
       {
+         printf("include nodepru %s\n", nodepruname);
          if( strcmp(nodepruname, "oracle") == 0 )
          {
             SCIP_CALL( SCIPincludeNodepruOracle(scip) );
@@ -355,6 +419,7 @@ SCIP_RETCODE processShellArguments(
 
       if( nodeselname != NULL )
       {
+         printf("include nodesel %s\n", nodeselname);
          SCIP_Bool ignored = FALSE;
          if( strcmp(nodeselname, "oracle") == 0 )
          {
@@ -396,11 +461,13 @@ SCIP_RETCODE processShellArguments(
        * Version and library information *
        ***********************************/
 
+      /*
       SCIPprintVersion(scip, NULL);
       SCIPinfoMessage(scip, NULL, "\n");
 
       SCIPprintExternalCodes(scip, NULL);
       SCIPinfoMessage(scip, NULL, "\n");
+      */
 
       /*****************
        * Load settings *
@@ -454,10 +521,6 @@ SCIP_RETCODE runShell(
    )
 {
    SCIP* scip = NULL;
-   int num_heur = 0;
-   SCIP_HEUR** heurs = NULL;
-   SCIP_BRANCHRULE* branch_rule = NULL;
-   int i;
 
    /*********
     * Setup *
@@ -469,18 +532,6 @@ SCIP_RETCODE runShell(
    /* include default SCIP plugins */
    SCIP_CALL( SCIPincludeDefaultPlugins(scip) );
 
-   /* disable heuristics */
-   num_heur = SCIPgetNHeurs( scip );
-   heurs = SCIPgetHeurs( scip );
-   for( i = 0; i < num_heur; i++ )
-   {
-      SCIPheurSetFreq( heurs[i], -1 );
-   }
-
-   /* use most infeasible branching */
-   branch_rule = SCIPfindBranchrule( scip, "mostinf" );
-   SCIP_CALL( SCIPsetBranchrulePriority( scip, branch_rule, 9999999 ) );
-   
    /**********************************
     * Process command line arguments *
     **********************************/

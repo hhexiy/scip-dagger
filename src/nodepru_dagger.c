@@ -14,7 +14,6 @@
  */
 
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
-#define SCIP_DEBUG
 #include <assert.h>
 #include <string.h>
 #include "nodepru_dagger.h"
@@ -48,6 +47,7 @@ struct SCIP_NodepruData
    char*              polfname;           /**< name of the solution file */
    SCIP_POLICY*       policy;
    char*              trjfname;           /**< name of the trajectory file */
+   FILE*              wfile;
    FILE*              trjfile;
    SCIP_FEAT*         feat;
    SCIP_Bool          checkopt;           /**< need to check node optimality? (don't need to if node selector is oracle or dagger */ 
@@ -110,7 +110,9 @@ SCIP_DECL_NODEPRUINITSOL(nodepruInitsolDagger)
    nodeprudata->optsol = NULL;
    SCIP_CALL( SCIPreadOptSol(scip, nodeprudata->solfname, &nodeprudata->optsol) );
    assert(nodeprudata->optsol != NULL);
+#ifdef SCIP_DEBUG
    SCIP_CALL( SCIPprintSol(scip, nodeprudata->optsol, NULL, FALSE) ); 
+#endif
 
    /* read policy */
    SCIP_CALL( SCIPpolicyCreate(scip, &nodeprudata->policy) );
@@ -122,13 +124,19 @@ SCIP_DECL_NODEPRUINITSOL(nodepruInitsolDagger)
    /* open in appending mode for writing training file from multiple problems */
    nodeprudata->trjfile = NULL;
    if( nodeprudata->trjfname != NULL )
+   {
+      char wfname[100];
+      strcpy(wfname, nodeprudata->trjfname);
+      strcat(wfname, ".weight");
+      nodeprudata->wfile = fopen(wfname, "a");
       nodeprudata->trjfile = fopen(nodeprudata->trjfname, "a");
+   }
 
    /* create feat */
    nodeprudata->feat = NULL;
    SCIP_CALL( SCIPfeatCreate(scip, &nodeprudata->feat, SCIP_FEATNODEPRU_SIZE) );
    assert(nodeprudata->feat != NULL);
-   SCIPfeatSetMaxDepth(nodeprudata->feat, SCIPgetNVars(scip));
+   SCIPfeatSetMaxDepth(nodeprudata->feat, SCIPgetNBinVars(scip) + SCIPgetNIntVars(scip));
   
    if( strcmp(SCIPnodeselGetName(SCIPgetNodesel(scip)), "oracle") == 0 ||
        strcmp(SCIPnodeselGetName(SCIPgetNodesel(scip)), "dagger") == 0 )
@@ -158,7 +166,10 @@ SCIP_DECL_NODEPRUFREE(nodepruFreeDagger)
    SCIP_CALL( SCIPfreeSolSelf(scip, &nodeprudata->optsol) );
   
    if( nodeprudata->trjfile != NULL)
+   {
+      fclose(nodeprudata->wfile);
       fclose(nodeprudata->trjfile);
+   }
 
    assert(nodeprudata->feat != NULL);
    SCIP_CALL( SCIPfeatFree(scip, &nodeprudata->feat) );
@@ -218,7 +229,7 @@ SCIP_DECL_NODEPRUPRUNE(nodepruPruneDagger)
             SCIPnodeCheckOptimal(scip, node, nodeprudata->optsol);
          isoptimal = SCIPnodeIsOptimal(node);
          SCIPdebugMessage("node pruning feature of node #%"SCIP_LONGINT_FORMAT"\n", SCIPnodeGetNumber(node));
-         SCIPfeatLIBSVMPrint(scip, nodeprudata->trjfile, nodeprudata->feat, isoptimal ? -1 : 1);
+         SCIPfeatLIBSVMPrint(scip, nodeprudata->trjfile, nodeprudata->wfile, nodeprudata->feat, isoptimal ? -1 : 1);
          if( isoptimal && *prune )
             nodeprudata->nfalsepos++;
          else if( (!isoptimal) && (!*prune) )

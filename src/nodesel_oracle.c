@@ -14,7 +14,6 @@
  */
 
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
-#define SCIP_DEBUG
 #include <assert.h>
 #include <string.h>
 #include "nodesel_oracle.h"
@@ -42,6 +41,7 @@ struct SCIP_NodeselData
    char*              solfname;           /**< name of the solution file */
    char*              trjfname;           /**< name of the trajectory file */
    FILE*              trjfile;
+   FILE*              wfile;
    SCIP_FEAT*         feat;
    SCIP_FEAT*         optfeat;
 #ifndef NDEBUG 
@@ -281,7 +281,6 @@ SCIP_RETCODE SCIPreadOptSol(
    if( !error )
    {
       SCIP_Real obj;
-      assert(SCIPgetNSols(scip) == 0);
       /* display result */
       obj = SCIPgetSolOrigObj(scip, *sol);
       SCIPverbMessage(scip, SCIP_VERBLEVEL_NORMAL, NULL, "optimal solution from solution file <%s> was %s\n",
@@ -314,13 +313,14 @@ SCIP_DECL_NODESELCOPY(nodeselCopyOracle)
 
 /** solving process initialization method of node selector (called when branch and bound process is about to begin) */
 static
-SCIP_DECL_NODESELINITSOL(nodeselInitsolOracle)
+SCIP_DECL_NODESELINIT(nodeselInitOracle)
 {
    SCIP_NODESELDATA* nodeseldata;
 
    assert(scip != NULL);
    assert(nodesel != NULL);
 
+   fprintf(stderr, "init nodesel\n");
    nodeseldata = SCIPnodeselGetData(nodesel);
    assert(nodeseldata != NULL);
 
@@ -329,23 +329,31 @@ SCIP_DECL_NODESELINITSOL(nodeselInitsolOracle)
    nodeseldata->optsol = NULL;
    SCIP_CALL( SCIPreadOptSol(scip, nodeseldata->solfname, &nodeseldata->optsol) );
    assert(nodeseldata->optsol != NULL);
+#ifdef SCIP_DEBUG
    SCIP_CALL( SCIPprintSol(scip, nodeseldata->optsol, NULL, FALSE) ); 
+#endif
    
    nodeseldata->trjfile = NULL;
    if( nodeseldata->trjfname != NULL )
+   {
+      char wfname[100];
+      strcpy(wfname, nodeseldata->trjfname);
+      strcat(wfname, ".weight");
+      nodeseldata->wfile = fopen(wfname, "a");
       nodeseldata->trjfile = fopen(nodeseldata->trjfname, "a");
+   }
 
    /* create feat */
    nodeseldata->feat = NULL;
    SCIP_CALL( SCIPfeatCreate(scip, &nodeseldata->feat, SCIP_FEATNODESEL_SIZE) );
    assert(nodeseldata->feat != NULL);
-   SCIPfeatSetMaxDepth(nodeseldata->feat, SCIPgetNVars(scip));
+   SCIPfeatSetMaxDepth(nodeseldata->feat, SCIPgetNBinVars(scip) + SCIPgetNIntVars(scip));
   
    /* create optimal node feat */
    nodeseldata->optfeat = NULL;
    SCIP_CALL( SCIPfeatCreate(scip, &nodeseldata->optfeat, SCIP_FEATNODESEL_SIZE) );
    assert(nodeseldata->optfeat != NULL);
-   SCIPfeatSetMaxDepth(nodeseldata->optfeat, SCIPgetNVars(scip));
+   SCIPfeatSetMaxDepth(nodeseldata->optfeat, SCIPgetNBinVars(scip) + SCIPgetNIntVars(scip));
 
 #ifndef NDEBUG 
    nodeseldata->optnodenumber = -1;
@@ -355,29 +363,58 @@ SCIP_DECL_NODESELINITSOL(nodeselInitsolOracle)
    return SCIP_OKAY;
 }
 
-/** destructor of node selector to free user data (called when SCIP is exiting) */
+/** deinitialization method of node selector (called before transformed problem is freed) */
 static
-SCIP_DECL_NODESELFREE(nodeselFreeOracle)
+SCIP_DECL_NODESELEXIT(nodeselExitOracle)
 {
    SCIP_NODESELDATA* nodeseldata;
    assert(scip != NULL);
    assert(nodesel != NULL);
 
+   fprintf(stderr, "exit nodesel\n");
    nodeseldata = SCIPnodeselGetData(nodesel);
 
    assert(nodeseldata->optsol != NULL);
    SCIP_CALL( SCIPfreeSolSelf(scip, &nodeseldata->optsol) );
+   nodeseldata->optsol = NULL;
   
    if( nodeseldata->trjfile != NULL)
+   {
+      fclose(nodeseldata->wfile);
       fclose(nodeseldata->trjfile);
+      nodeseldata->wfile = NULL;
+      nodeseldata->trjfile = NULL;
+   }
 
    if( nodeseldata->feat != NULL )
+   {
       SCIP_CALL( SCIPfeatFree(scip, &nodeseldata->feat) );
+      nodeseldata->feat = NULL;
+   }
    if( nodeseldata->optfeat != NULL )
+   {
       SCIP_CALL( SCIPfeatFree(scip, &nodeseldata->optfeat) );
+      nodeseldata->optfeat = NULL;
+   }
+
+#ifndef NDEBUG 
+   nodeseldata->optnodenumber = -1;
+#endif
+   nodeseldata->negate = TRUE;
    
    SCIPfreeBlockMemory(scip, &nodeseldata);
 
+   return SCIP_OKAY;
+}
+
+/** destructor of node selector to free user data (called when SCIP is exiting) */
+static
+SCIP_DECL_NODESELFREE(nodeselFreeOracle)
+{
+   assert(scip != NULL);
+   assert(nodesel != NULL);
+
+   fprintf(stderr, "free nodesel\n");
    SCIPnodeselSetData(nodesel, NULL);
 
    return SCIP_OKAY;
@@ -439,23 +476,20 @@ SCIP_DECL_NODESELSELECT(nodeselSelectOracle)
             {
                SCIPcalcNodeselFeat(scip, children[i], nodeseldata->feat);
                nodeseldata->negate ^= 1;
-               SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
-               SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+               SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->wfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
             }
          }
          for( i = 0; i < nsiblings; i++ )
          {
             SCIPcalcNodeselFeat(scip, siblings[i], nodeseldata->feat);
             nodeseldata->negate ^= 1;
-            SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
-            SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+            SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->wfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
          }
          for( i = 0; i < nleaves; i++ )
          {
             SCIPcalcNodeselFeat(scip, leaves[i], nodeseldata->feat);
             nodeseldata->negate ^= 1;
-            SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
-            SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+            SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->wfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
          }
       }
       else
@@ -466,8 +500,7 @@ SCIP_DECL_NODESELSELECT(nodeselSelectOracle)
          {
             SCIPcalcNodeselFeat(scip, children[i], nodeseldata->feat);
             nodeseldata->negate ^= 1;
-            SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
-            SCIPfeatDiffLIBSVMPrint(scip, NULL, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
+            SCIPfeatDiffLIBSVMPrint(scip, nodeseldata->trjfile, nodeseldata->wfile, nodeseldata->optfeat, nodeseldata->feat, 1, nodeseldata->negate);
          }
       }
 #ifndef SCIP_DEBUG
@@ -550,9 +583,8 @@ SCIP_RETCODE SCIPincludeNodeselOracle(
    /* create oracle node selector data */
    SCIP_CALL( SCIPallocBlockMemory(scip, &nodeseldata) );
 
+   fprintf(stderr, "include nodesel\n");
    nodesel = NULL;
-   nodeseldata->optsol = NULL;
-   nodeseldata->solfname = NULL;
 
    /* use SCIPincludeNodeselBasic() plus setter functions if you want to set callbacks one-by-one and your code should
     * compile independent of new callbacks being added in future SCIP versions
@@ -564,14 +596,17 @@ SCIP_RETCODE SCIPincludeNodeselOracle(
 
    /* set non fundamental callbacks via setter functions */
    SCIP_CALL( SCIPsetNodeselCopy(scip, nodesel, nodeselCopyOracle) );
-   SCIP_CALL( SCIPsetNodeselInitsol(scip, nodesel, nodeselInitsolOracle) );
+   SCIP_CALL( SCIPsetNodeselInit(scip, nodesel, nodeselInitOracle) );
+   SCIP_CALL( SCIPsetNodeselExit(scip, nodesel, nodeselExitOracle) );
    SCIP_CALL( SCIPsetNodeselFree(scip, nodesel, nodeselFreeOracle) );
 
    /* add oracle node selector parameters */
+   fprintf(stderr, "adding nodesel name\n");
    SCIP_CALL( SCIPaddStringParam(scip, 
          "nodeselection/"NODESEL_NAME"/solfname",
          "name of the optimal solution file",
          &nodeseldata->solfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );
+   fprintf(stderr, "adding nodesel trj name\n");
    SCIP_CALL( SCIPaddStringParam(scip, 
          "nodeselection/"NODESEL_NAME"/trjfname",
          "name of the file to write node selection trajectories",

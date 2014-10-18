@@ -8,7 +8,6 @@
  */
 
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
-#define SCIP_DEBUG
 #include <assert.h>
 #include <string.h>
 #include "nodepru_oracle.h"
@@ -36,6 +35,7 @@ struct SCIP_NodepruData
    char*              solfname;           /**< name of the solution file */
    char*              trjfname;           /**< name of the trajectory file */
    SCIP_Bool          checkopt;           /**< need to check node optimality? (don't need to if node selector is oracle or dagger */ 
+   FILE*              wfile;
    FILE*              trjfile;
 };
 
@@ -55,12 +55,13 @@ SCIP_DECL_NODEPRUCOPY(nodepruCopyOracle)
 
 /** solving process initialization method of node pruner (called when branch and bound process is about to begin) */
 static
-SCIP_DECL_NODEPRUINITSOL(nodepruInitsolOracle)
+SCIP_DECL_NODEPRUINIT(nodepruInitOracle)
 {
    SCIP_NODEPRUDATA* nodeprudata;
    assert(scip != NULL);
    assert(nodepru != NULL);
 
+   fprintf(stderr, "init nodepru\n");
    nodeprudata = SCIPnodepruGetData(nodepru);
 
    assert(nodeprudata != NULL);
@@ -70,8 +71,9 @@ SCIP_DECL_NODEPRUINITSOL(nodepruInitsolOracle)
 
    SCIP_CALL( SCIPreadOptSol(scip, nodeprudata->solfname, &nodeprudata->optsol) );
    assert(nodeprudata->optsol != NULL);
-  
+#ifdef SCIP_DEBUG
    SCIP_CALL( SCIPprintSol(scip, nodeprudata->optsol, NULL, FALSE) ); 
+#endif
 
    if( strcmp(SCIPnodeselGetName(SCIPgetNodesel(scip)), "oracle") == 0 ||
        strcmp(SCIPnodeselGetName(SCIPgetNodesel(scip)), "dagger") == 0 )
@@ -81,14 +83,56 @@ SCIP_DECL_NODEPRUINITSOL(nodepruInitsolOracle)
 
    nodeprudata->trjfile = NULL;
    if( nodeprudata->trjfname != NULL )
+   {
+      char wfname[100];
+      strcpy(wfname, nodeprudata->trjfname);
+      strcat(wfname, ".weight");
+      nodeprudata->wfile = fopen(wfname, "a");
       nodeprudata->trjfile = fopen(nodeprudata->trjfname, "a");
+   }
 
    /* create feat */
    nodeprudata->feat = NULL;
    SCIP_CALL( SCIPfeatCreate(scip, &nodeprudata->feat, SCIP_FEATNODEPRU_SIZE) );
    assert(nodeprudata->feat != NULL);
-   SCIPfeatSetMaxDepth(nodeprudata->feat, (SCIP_Real)SCIPgetNVars(scip));
+   SCIPfeatSetMaxDepth(nodeprudata->feat, (SCIP_Real)SCIPgetNBinVars(scip) + SCIPgetNIntVars(scip));
   
+   return SCIP_OKAY;
+}
+
+/** deinitialization method of node selector (called before transformed problem is freed) */
+static
+SCIP_DECL_NODEPRUEXIT(nodepruExitOracle)
+{
+   SCIP_NODEPRUDATA* nodeprudata;
+   assert(scip != NULL);
+   assert(nodepru != NULL);
+
+   fprintf(stderr, "exit nodepru\n");
+   nodeprudata = SCIPnodepruGetData(nodepru);
+
+   assert(nodeprudata->optsol != NULL);
+   SCIP_CALL( SCIPfreeSolSelf(scip, &nodeprudata->optsol) );
+   nodeprudata->optsol = NULL;
+
+   if( nodeprudata->feat != NULL )
+   {
+      SCIP_CALL( SCIPfeatFree(scip, &nodeprudata->feat) );
+      nodeprudata->feat = NULL;
+   }
+
+   if( nodeprudata->trjfile != NULL)
+   {
+      fclose(nodeprudata->wfile);
+      fclose(nodeprudata->trjfile);
+      nodeprudata->trjfile = NULL;
+      nodeprudata->wfile = NULL;
+   }
+
+   nodeprudata->checkopt = FALSE;
+
+   SCIPfreeBlockMemory(scip, &nodeprudata);
+
    return SCIP_OKAY;
 }
 
@@ -96,23 +140,10 @@ SCIP_DECL_NODEPRUINITSOL(nodepruInitsolOracle)
 static
 SCIP_DECL_NODEPRUFREE(nodepruFreeOracle)
 {
-   SCIP_NODEPRUDATA* nodeprudata;
    assert(scip != NULL);
    assert(nodepru != NULL);
 
-   nodeprudata = SCIPnodepruGetData(nodepru);
-
-   assert(nodeprudata->optsol != NULL);
-   SCIP_CALL( SCIPfreeSolSelf(scip, &nodeprudata->optsol) );
-
-   if( nodeprudata->feat != NULL )
-      SCIP_CALL( SCIPfeatFree(scip, &nodeprudata->feat) );
-
-   if( nodeprudata->trjfile != NULL)
-      fclose(nodeprudata->trjfile);
-
-   SCIPfreeBlockMemory(scip, &nodeprudata);
-
+   printf("free nodepru\n");
    SCIPnodepruSetData(nodepru, NULL);
 
    return SCIP_OKAY;
@@ -161,7 +192,7 @@ SCIP_DECL_NODEPRUPRUNE(nodepruPruneOracle)
 #endif
          SCIPcalcNodepruFeat(scip, node, nodeprudata->feat);
          SCIPdebugMessage("node pruning feature of node #%"SCIP_LONGINT_FORMAT"\n", SCIPnodeGetNumber(node));
-         SCIPfeatLIBSVMPrint(scip, nodeprudata->trjfile, nodeprudata->feat, *prune ? 1 : -1);
+         SCIPfeatLIBSVMPrint(scip, nodeprudata->trjfile, nodeprudata->wfile, nodeprudata->feat, *prune ? 1 : -1);
       }
 #ifndef SCIP_DEBUG
    }
@@ -182,12 +213,14 @@ SCIP_RETCODE SCIPincludeNodepruOracle(
    SCIP_NODEPRUDATA* nodeprudata;
    SCIP_NODEPRU* nodepru;
 
+   fprintf(stderr, "include nodepru\n");
    /* create oracle node pruner data */
    SCIP_CALL( SCIPallocBlockMemory(scip, &nodeprudata) );
 
    nodepru = NULL;
    nodeprudata->optsol = NULL;
    nodeprudata->solfname = NULL;
+   nodeprudata->trjfname = NULL;
 
    /* use SCIPincludeNodepruBasic() plus setter functions if you want to set callbacks one-by-one and your code should
     * compile independent of new callbacks being added in future SCIP versions
@@ -199,14 +232,17 @@ SCIP_RETCODE SCIPincludeNodepruOracle(
 
    /* set non fundamental callbacks via setter functions */
    SCIP_CALL( SCIPsetNodepruCopy(scip, nodepru, nodepruCopyOracle) );
-   SCIP_CALL( SCIPsetNodepruInitsol(scip, nodepru, nodepruInitsolOracle) );
+   SCIP_CALL( SCIPsetNodepruInit(scip, nodepru, nodepruInitOracle) );
+   SCIP_CALL( SCIPsetNodepruExit(scip, nodepru, nodepruExitOracle) );
    SCIP_CALL( SCIPsetNodepruFree(scip, nodepru, nodepruFreeOracle) );
 
    /* add oracle node pruner parameters */
+   fprintf(stderr, "adding nodepru name\n");
    SCIP_CALL( SCIPaddStringParam(scip, 
          "nodepruning/"NODEPRU_NAME"/solfname",
          "name of the optimal solution file",
          &nodeprudata->solfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );
+   fprintf(stderr, "adding nodepru trj name\n");
    SCIP_CALL( SCIPaddStringParam(scip, 
          "nodepruning/"NODEPRU_NAME"/trjfname",
          "name of the file to write node pruning trajectories",

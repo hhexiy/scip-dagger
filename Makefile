@@ -34,9 +34,15 @@ include $(SCIPDIR)/make/make.project
 # Main Program
 #-----------------------------------------------------------------------------
 
-MAINNAME	=	sciptest
+MAINNAME	=	scipdagger
 CMAINOBJ	=	nodesel_oracle.o \
+			nodesel_dagger.o \
+			nodesel_policy.o \
 			nodepru_oracle.o \
+			nodepru_dagger.o \
+			nodepru_policy.o \
+			feat.o \
+			policy.o \
 			cmain.o
 
 CXXMAINOBJ	=	 

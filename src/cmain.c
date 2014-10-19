@@ -419,8 +419,8 @@ SCIP_RETCODE processShellArguments(
 
       if( nodeselname != NULL )
       {
-         printf("include nodesel %s\n", nodeselname);
          SCIP_Bool ignored = FALSE;
+         fprintf(stderr, "include nodesel %s\n", nodeselname);
          if( strcmp(nodeselname, "oracle") == 0 )
          {
             SCIP_CALL( SCIPincludeNodeselOracle(scip) );
@@ -439,9 +439,7 @@ SCIP_RETCODE processShellArguments(
          else if( strcmp(nodeselname, "policy") == 0 )
          {
             SCIP_CALL( SCIPincludeNodeselPolicy(scip) );
-            printf("set param %s\n", nodeselpol);
             SCIP_CALL( SCIPsetStringParam(scip, "nodeselection/policy/polfname", nodeselpol) );
-            printf("set param done\n");
          }
          else
          {

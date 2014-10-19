@@ -45,7 +45,7 @@ struct SCIP_NodeselData
    SCIP_FEAT*         feat;
    SCIP_FEAT*         optfeat;
 #ifndef NDEBUG 
-   SCIP_Longint       optnodenumber;             /**< successively assigned number of the node */
+   SCIP_Longint       optnodenumber;      /**< successively assigned number of the node */
 #endif
    SCIP_Bool          negate;
 };
@@ -320,7 +320,6 @@ SCIP_DECL_NODESELINIT(nodeselInitOracle)
    assert(scip != NULL);
    assert(nodesel != NULL);
 
-   fprintf(stderr, "init nodesel\n");
    nodeseldata = SCIPnodeselGetData(nodesel);
    assert(nodeseldata != NULL);
 
@@ -371,7 +370,6 @@ SCIP_DECL_NODESELEXIT(nodeselExitOracle)
    assert(scip != NULL);
    assert(nodesel != NULL);
 
-   fprintf(stderr, "exit nodesel\n");
    nodeseldata = SCIPnodeselGetData(nodesel);
 
    assert(nodeseldata->optsol != NULL);
@@ -402,8 +400,6 @@ SCIP_DECL_NODESELEXIT(nodeselExitOracle)
 #endif
    nodeseldata->negate = TRUE;
    
-   SCIPfreeBlockMemory(scip, &nodeseldata);
-
    return SCIP_OKAY;
 }
 
@@ -411,10 +407,13 @@ SCIP_DECL_NODESELEXIT(nodeselExitOracle)
 static
 SCIP_DECL_NODESELFREE(nodeselFreeOracle)
 {
-   assert(scip != NULL);
-   assert(nodesel != NULL);
+   SCIP_NODESELDATA* nodeseldata;
+   nodeseldata = SCIPnodeselGetData(nodesel);
 
-   fprintf(stderr, "free nodesel\n");
+   assert(nodeseldata != NULL);
+
+   SCIPfreeBlockMemory(scip, &nodeseldata);
+
    SCIPnodeselSetData(nodesel, NULL);
 
    return SCIP_OKAY;
@@ -583,7 +582,6 @@ SCIP_RETCODE SCIPincludeNodeselOracle(
    /* create oracle node selector data */
    SCIP_CALL( SCIPallocBlockMemory(scip, &nodeseldata) );
 
-   fprintf(stderr, "include nodesel\n");
    nodesel = NULL;
 
    /* use SCIPincludeNodeselBasic() plus setter functions if you want to set callbacks one-by-one and your code should
@@ -601,16 +599,16 @@ SCIP_RETCODE SCIPincludeNodeselOracle(
    SCIP_CALL( SCIPsetNodeselFree(scip, nodesel, nodeselFreeOracle) );
 
    /* add oracle node selector parameters */
-   fprintf(stderr, "adding nodesel name\n");
+   nodeseldata->solfname = NULL;
    SCIP_CALL( SCIPaddStringParam(scip, 
          "nodeselection/"NODESEL_NAME"/solfname",
          "name of the optimal solution file",
-         &nodeseldata->solfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );
-   fprintf(stderr, "adding nodesel trj name\n");
+         &nodeseldata->solfname, TRUE, DEFAULT_FILENAME, NULL, NULL) );
+   nodeseldata->trjfname = NULL;
    SCIP_CALL( SCIPaddStringParam(scip, 
          "nodeselection/"NODESEL_NAME"/trjfname",
          "name of the file to write node selection trajectories",
-         &nodeseldata->trjfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );
+         &nodeseldata->trjfname, TRUE, DEFAULT_FILENAME, NULL, NULL) );
 
    return SCIP_OKAY;
 }

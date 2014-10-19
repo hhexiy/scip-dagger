@@ -61,7 +61,6 @@ SCIP_DECL_NODEPRUINIT(nodepruInitOracle)
    assert(scip != NULL);
    assert(nodepru != NULL);
 
-   fprintf(stderr, "init nodepru\n");
    nodeprudata = SCIPnodepruGetData(nodepru);
 
    assert(nodeprudata != NULL);
@@ -108,7 +107,6 @@ SCIP_DECL_NODEPRUEXIT(nodepruExitOracle)
    assert(scip != NULL);
    assert(nodepru != NULL);
 
-   fprintf(stderr, "exit nodepru\n");
    nodeprudata = SCIPnodepruGetData(nodepru);
 
    assert(nodeprudata->optsol != NULL);
@@ -131,8 +129,6 @@ SCIP_DECL_NODEPRUEXIT(nodepruExitOracle)
 
    nodeprudata->checkopt = FALSE;
 
-   SCIPfreeBlockMemory(scip, &nodeprudata);
-
    return SCIP_OKAY;
 }
 
@@ -140,10 +136,13 @@ SCIP_DECL_NODEPRUEXIT(nodepruExitOracle)
 static
 SCIP_DECL_NODEPRUFREE(nodepruFreeOracle)
 {
-   assert(scip != NULL);
-   assert(nodepru != NULL);
+   SCIP_NODEPRUDATA* nodeprudata;
+   nodeprudata = SCIPnodepruGetData(nodepru);
 
-   printf("free nodepru\n");
+   assert(nodeprudata != NULL);
+
+   SCIPfreeBlockMemory(scip, &nodeprudata);
+
    SCIPnodepruSetData(nodepru, NULL);
 
    return SCIP_OKAY;
@@ -213,7 +212,6 @@ SCIP_RETCODE SCIPincludeNodepruOracle(
    SCIP_NODEPRUDATA* nodeprudata;
    SCIP_NODEPRU* nodepru;
 
-   fprintf(stderr, "include nodepru\n");
    /* create oracle node pruner data */
    SCIP_CALL( SCIPallocBlockMemory(scip, &nodeprudata) );
 
@@ -237,12 +235,10 @@ SCIP_RETCODE SCIPincludeNodepruOracle(
    SCIP_CALL( SCIPsetNodepruFree(scip, nodepru, nodepruFreeOracle) );
 
    /* add oracle node pruner parameters */
-   fprintf(stderr, "adding nodepru name\n");
    SCIP_CALL( SCIPaddStringParam(scip, 
          "nodepruning/"NODEPRU_NAME"/solfname",
          "name of the optimal solution file",
          &nodeprudata->solfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );
-   fprintf(stderr, "adding nodepru trj name\n");
    SCIP_CALL( SCIPaddStringParam(scip, 
          "nodepruning/"NODEPRU_NAME"/trjfname",
          "name of the file to write node pruning trajectories",

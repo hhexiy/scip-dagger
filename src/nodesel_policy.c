@@ -8,7 +8,6 @@
  */
 
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
-#define SCIP_DEBUG
 #include <assert.h>
 #include <string.h>
 #include "nodesel_policy.h"
@@ -67,7 +66,7 @@ SCIP_DECL_NODESELCOPY(nodeselCopyPolicy)
 
 /** solving process initialization method of node selector (called when branch and bound process is about to begin) */
 static
-SCIP_DECL_NODESELINITSOL(nodeselInitsolPolicy)
+SCIP_DECL_NODESELINIT(nodeselInitPolicy)
 {
    SCIP_NODESELDATA* nodeseldata;
    assert(scip != NULL);
@@ -86,14 +85,14 @@ SCIP_DECL_NODESELINITSOL(nodeselInitsolPolicy)
    nodeseldata->feat = NULL;
    SCIP_CALL( SCIPfeatCreate(scip, &nodeseldata->feat, SCIP_FEATNODESEL_SIZE) );
    assert(nodeseldata->feat != NULL);
-   SCIPfeatSetMaxDepth(nodeseldata->feat, SCIPgetNBinVars(scip) + SCIPgetNIntVars(scip));
+   SCIPfeatSetMaxDepth(nodeseldata->feat, SCIPgetNVars(scip));
   
    return SCIP_OKAY;
 }
 
 /** destructor of node selector to free user data (called when SCIP is exiting) */
 static
-SCIP_DECL_NODESELFREE(nodeselFreePolicy)
+SCIP_DECL_NODESELEXIT(nodeselExitPolicy)
 {
    SCIP_NODESELDATA* nodeseldata;
    assert(scip != NULL);
@@ -107,6 +106,18 @@ SCIP_DECL_NODESELFREE(nodeselFreePolicy)
    assert(nodeseldata->policy != NULL);
    SCIP_CALL( SCIPpolicyFree(scip, &nodeseldata->policy) );
    
+   return SCIP_OKAY;
+}
+
+/** destructor of node selector to free user data (called when SCIP is exiting) */
+static
+SCIP_DECL_NODESELFREE(nodeselFreePolicy)
+{
+   SCIP_NODESELDATA* nodeseldata;
+   assert(nodeseldata != NULL);
+
+   nodeseldata = SCIPnodeselGetData(nodesel);
+
    SCIPfreeBlockMemory(scip, &nodeseldata);
 
    SCIPnodeselSetData(nodesel, NULL);
@@ -224,7 +235,8 @@ SCIP_RETCODE SCIPincludeNodeselPolicy(
 
    /* set non fundamental callbacks via setter functions */
    SCIP_CALL( SCIPsetNodeselCopy(scip, nodesel, nodeselCopyPolicy) );
-   SCIP_CALL( SCIPsetNodeselInitsol(scip, nodesel, nodeselInitsolPolicy) );
+   SCIP_CALL( SCIPsetNodeselInit(scip, nodesel, nodeselInitPolicy) );
+   SCIP_CALL( SCIPsetNodeselExit(scip, nodesel, nodeselExitPolicy) );
    SCIP_CALL( SCIPsetNodeselFree(scip, nodesel, nodeselFreePolicy) );
 
    /* add policy node selector parameters */

@@ -14,7 +14,6 @@
  */
 
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
-#define SCIP_DEBUG
 #include <assert.h>
 #include <string.h>
 #include "nodepru_policy.h"
@@ -84,7 +83,7 @@ SCIP_DECL_NODEPRUCOPY(nodepruCopyPolicy)
 
 /** solving process initialization method of node pruner (called when branch and bound process is about to begin) */
 static
-SCIP_DECL_NODEPRUINITSOL(nodepruInitsolPolicy)
+SCIP_DECL_NODEPRUINIT(nodepruInitPolicy)
 {
    SCIP_NODEPRUDATA* nodeprudata;
    assert(scip != NULL);
@@ -112,7 +111,7 @@ SCIP_DECL_NODEPRUINITSOL(nodepruInitsolPolicy)
 
 /** destructor of node pruner to free user data (called when SCIP is exiting) */
 static
-SCIP_DECL_NODEPRUFREE(nodepruFreePolicy)
+SCIP_DECL_NODEPRUEXIT(nodepruExitPolicy)
 {
    SCIP_NODEPRUDATA* nodeprudata;
    assert(scip != NULL);
@@ -126,6 +125,18 @@ SCIP_DECL_NODEPRUFREE(nodepruFreePolicy)
    assert(nodeprudata->policy != NULL);
    SCIP_CALL( SCIPpolicyFree(scip, &nodeprudata->policy) );
   
+   return SCIP_OKAY;
+}
+
+/** destructor of node pruner to free user data (called when SCIP is exiting) */
+static
+SCIP_DECL_NODEPRUFREE(nodepruFreePolicy)
+{
+   SCIP_NODEPRUDATA* nodeprudata;
+   nodeprudata = SCIPnodepruGetData(nodepru);
+
+   assert(nodeprudata != NULL);
+
    SCIPfreeBlockMemory(scip, &nodeprudata);
 
    SCIPnodepruSetData(nodepru, NULL);
@@ -204,7 +215,8 @@ SCIP_RETCODE SCIPincludeNodepruPolicy(
 
    /* set non fundamental callbacks via setter functions */
    SCIP_CALL( SCIPsetNodepruCopy(scip, nodepru, nodepruCopyPolicy) );
-   SCIP_CALL( SCIPsetNodepruInitsol(scip, nodepru, nodepruInitsolPolicy) );
+   SCIP_CALL( SCIPsetNodepruInit(scip, nodepru, nodepruInitPolicy) );
+   SCIP_CALL( SCIPsetNodepruExit(scip, nodepru, nodepruExitPolicy) );
    SCIP_CALL( SCIPsetNodepruFree(scip, nodepru, nodepruFreePolicy) );
 
    /* add policy node pruner parameters */

@@ -91,7 +91,7 @@ SCIP_DECL_NODESELCOPY(nodeselCopyDagger)
 
 /** solving process initialization method of node selector (called when branch and bound process is about to begin) */
 static
-SCIP_DECL_NODESELINITSOL(nodeselInitsolDagger)
+SCIP_DECL_NODESELINIT(nodeselInitDagger)
 {
    SCIP_NODESELDATA* nodeseldata;
    assert(scip != NULL);
@@ -152,7 +152,7 @@ SCIP_DECL_NODESELINITSOL(nodeselInitsolDagger)
 
 /** destructor of node selector to free user data (called when SCIP is exiting) */
 static
-SCIP_DECL_NODESELFREE(nodeselFreeDagger)
+SCIP_DECL_NODESELEXIT(nodeselExitDagger)
 {
    SCIP_NODESELDATA* nodeseldata;
    assert(scip != NULL);
@@ -177,6 +177,18 @@ SCIP_DECL_NODESELFREE(nodeselFreeDagger)
    assert(nodeseldata->policy != NULL);
    SCIP_CALL( SCIPpolicyFree(scip, &nodeseldata->policy) );
    
+   return SCIP_OKAY;
+}
+
+/** destructor of node selector to free user data (called when SCIP is exiting) */
+static
+SCIP_DECL_NODESELFREE(nodeselFreeDagger)
+{
+   SCIP_NODESELDATA* nodeseldata;
+
+   nodeseldata = SCIPnodeselGetData(nodesel);
+   assert(nodeseldata != NULL);
+
    SCIPfreeBlockMemory(scip, &nodeseldata);
 
    SCIPnodeselSetData(nodesel, NULL);
@@ -386,7 +398,8 @@ SCIP_RETCODE SCIPincludeNodeselDagger(
 
    /* set non fundamental callbacks via setter functions */
    SCIP_CALL( SCIPsetNodeselCopy(scip, nodesel, nodeselCopyDagger) );
-   SCIP_CALL( SCIPsetNodeselInitsol(scip, nodesel, nodeselInitsolDagger) );
+   SCIP_CALL( SCIPsetNodeselInit(scip, nodesel, nodeselInitDagger) );
+   SCIP_CALL( SCIPsetNodeselExit(scip, nodesel, nodeselExitDagger) );
    SCIP_CALL( SCIPsetNodeselFree(scip, nodesel, nodeselFreeDagger) );
 
    /* add dagger node selector parameters */

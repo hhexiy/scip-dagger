@@ -96,7 +96,7 @@ SCIP_DECL_NODEPRUCOPY(nodepruCopyDagger)
 
 /** solving process initialization method of node pruner (called when branch and bound process is about to begin) */
 static
-SCIP_DECL_NODEPRUINITSOL(nodepruInitsolDagger)
+SCIP_DECL_NODEPRUINIT(nodepruInitDagger)
 {
    SCIP_NODEPRUDATA* nodeprudata;
    assert(scip != NULL);
@@ -154,7 +154,7 @@ SCIP_DECL_NODEPRUINITSOL(nodepruInitsolDagger)
 
 /** destructor of node pruner to free user data (called when SCIP is exiting) */
 static
-SCIP_DECL_NODEPRUFREE(nodepruFreeDagger)
+SCIP_DECL_NODEPRUEXIT(nodepruExitDagger)
 {
    SCIP_NODEPRUDATA* nodeprudata;
    assert(scip != NULL);
@@ -177,6 +177,18 @@ SCIP_DECL_NODEPRUFREE(nodepruFreeDagger)
    assert(nodeprudata->policy != NULL);
    SCIP_CALL( SCIPpolicyFree(scip, &nodeprudata->policy) );
    
+   return SCIP_OKAY;
+}
+
+/** destructor of node pruner to free user data (called when SCIP is exiting) */
+static
+SCIP_DECL_NODEPRUFREE(nodepruFreeDagger)
+{
+   SCIP_NODEPRUDATA* nodeprudata;
+   nodeprudata = SCIPnodepruGetData(nodepru);
+
+   assert(nodeprudata != NULL);
+
    SCIPfreeBlockMemory(scip, &nodeprudata);
 
    SCIPnodepruSetData(nodepru, NULL);
@@ -274,7 +286,8 @@ SCIP_RETCODE SCIPincludeNodepruDagger(
 
    /* set non fundamental callbacks via setter functions */
    SCIP_CALL( SCIPsetNodepruCopy(scip, nodepru, nodepruCopyDagger) );
-   SCIP_CALL( SCIPsetNodepruInitsol(scip, nodepru, nodepruInitsolDagger) );
+   SCIP_CALL( SCIPsetNodepruInit(scip, nodepru, nodepruInitDagger) );
+   SCIP_CALL( SCIPsetNodepruExit(scip, nodepru, nodepruExitDagger) );
    SCIP_CALL( SCIPsetNodepruFree(scip, nodepru, nodepruFreeDagger) );
 
    /* add dagger node pruner parameters */

@@ -51,7 +51,6 @@ SCIP_RETCODE SCIPfeatCreate(
 
    assert(scip != NULL);
    assert(feat != NULL);
-   printf("create feat\n");
    SCIP_CALL( SCIPallocBlockMemory(scip, feat) );
 
    SCIP_ALLOC( BMSallocMemoryArray(&(*feat)->vals, size) );
@@ -79,7 +78,6 @@ SCIP_RETCODE SCIPfeatFree(
    assert(scip != NULL);
    assert(feat != NULL);
    assert(*feat != NULL);
-   printf("free feat\n");
    BMSfreeMemoryArray(&(*feat)->vals);
    SCIPfreeBlockMemory(scip, feat);
 
@@ -98,14 +96,12 @@ void SCIPcalcNodepruFeat(
    SCIP_Bool upperboundinf;
    SCIP_Real rootlowerbound;
    SCIP_VAR* branchvar;
-   SCIP_COL* branchvarcol;
    SCIP_BOUNDCHG* boundchgs;
    SCIP_BRANCHDIR branchdirpreferred;
    SCIP_Real branchbound;
    SCIP_Bool haslp;
    SCIP_Real varsol;
    SCIP_Real varrootsol;
-   SCIP_Real varobj;                /**< coefficent in the objective function */
 
    assert(node != NULL);
    assert(SCIPnodeGetDepth(node) != 0);
@@ -137,8 +133,6 @@ void SCIPcalcNodepruFeat(
    branchvar = boundchgs[0].var; 
    branchbound = boundchgs[0].newbound;
    branchdirpreferred = SCIPvarGetBranchDirection(branchvar);
-   branchvarcol = SCIPvarGetCol(branchvar);
-   varobj = SCIPcolGetObj(branchvarcol);
 
    haslp = SCIPtreeHasFocusNodeLP(scip->tree);
    varsol = SCIPvarGetSol(branchvar, haslp);
@@ -169,21 +163,25 @@ void SCIPcalcNodepruFeat(
    /* node features */
    if( upperboundinf )
       upperbound = lowerbound + 0.2 * (upperbound - lowerbound);
-   feat->vals[SCIP_FEATNODEPRU_RELATIVEBOUND] = SCIPnodeGetLowerbound(node) / (upperbound - lowerbound);
-   feat->vals[SCIP_FEATNODEPRU_RELATIVEESTIMATE] = SCIPnodeGetEstimate(node) / (upperbound - lowerbound);
+   if( !SCIPsetIsEQ(scip->set, upperbound, lowerbound) )
+   {
+      feat->vals[SCIP_FEATNODEPRU_RELATIVEBOUND] = (SCIPnodeGetLowerbound(node) - lowerbound) / (upperbound - lowerbound);
+      feat->vals[SCIP_FEATNODEPRU_RELATIVEESTIMATE] = (SCIPnodeGetEstimate(node) - lowerbound)/ (upperbound - lowerbound);
+   }
 
    /* branch var features */
-   feat->vals[SCIP_FEATNODESEL_BRANCHVAR_BOUNDLPDIFF] = branchbound - varsol;
-   feat->vals[SCIP_FEATNODESEL_BRANCHVAR_ROOTLPDIFF] = varrootsol - varsol;
+   feat->vals[SCIP_FEATNODEPRU_BRANCHVAR_BOUNDLPDIFF] = branchbound - varsol;
+   feat->vals[SCIP_FEATNODEPRU_BRANCHVAR_ROOTLPDIFF] = varrootsol - varsol;
 
    if( branchdirpreferred == SCIP_BRANCHDIR_DOWNWARDS )
-      feat->vals[SCIP_FEATNODESEL_BRANCHVAR_PRIO_DOWN] = 1;
+      feat->vals[SCIP_FEATNODEPRU_BRANCHVAR_PRIO_DOWN] = 1;
    else if(branchdirpreferred == SCIP_BRANCHDIR_UPWARDS ) 
-      feat->vals[SCIP_FEATNODESEL_BRANCHVAR_PRIO_UP] = 1;
+      feat->vals[SCIP_FEATNODEPRU_BRANCHVAR_PRIO_UP] = 1;
 
-   feat->vals[SCIP_FEATNODESEL_BRANCHVAR_PSEUDOCOST] = SCIPvarGetPseudocost(branchvar, scip->stat, branchbound - varsol) / ABS(varobj);
+   feat->vals[SCIP_FEATNODEPRU_BRANCHVAR_PSEUDOCOST] = SCIPvarGetPseudocost(branchvar, scip->stat, branchbound - varsol);
+   /*fprintf(stderr, "%d cost: %f, varobj: %f", (int)SCIP_FEATNODEPRU_BRANCHVAR_PSEUDOCOST, SCIPvarGetPseudocost(branchvar, scip->stat, branchbound - varsol), varobj);*/
 
-   feat->vals[SCIP_FEATNODESEL_BRANCHVAR_INF] = 
+   feat->vals[SCIP_FEATNODEPRU_BRANCHVAR_INF] = 
       feat->boundtype == SCIP_BOUNDTYPE_LOWER ? 
       SCIPvarGetAvgInferences(branchvar, scip->stat, SCIP_BRANCHDIR_UPWARDS) / (SCIP_Real)feat->maxdepth : 
       SCIPvarGetAvgInferences(branchvar, scip->stat, SCIP_BRANCHDIR_DOWNWARDS) / (SCIP_Real)feat->maxdepth;
@@ -280,7 +278,7 @@ void SCIPcalcNodeselFeat(
    else if(branchdirpreferred == SCIP_BRANCHDIR_UPWARDS ) 
       feat->vals[SCIP_FEATNODESEL_BRANCHVAR_PRIO_UP] = 1;
 
-   feat->vals[SCIP_FEATNODESEL_BRANCHVAR_PSEUDOCOST] = SCIPvarGetPseudocost(branchvar, scip->stat, branchbound - varsol) / ABS(varobj);
+   feat->vals[SCIP_FEATNODESEL_BRANCHVAR_PSEUDOCOST] = SCIPvarGetPseudocost(branchvar, scip->stat, branchbound - varsol);
 
    feat->vals[SCIP_FEATNODESEL_BRANCHVAR_INF] = 
       feat->boundtype == SCIP_BOUNDTYPE_LOWER ? 

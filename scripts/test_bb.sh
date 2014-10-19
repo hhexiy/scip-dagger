@@ -1,12 +1,13 @@
 #!/bin/bash
 
 usage() {
-  echo "Usage: $0 -d <data_path_under_dat> -s <search_policy> -k <kill_policy> -e <experiment> -x <suffix> -m <problem>"
+  echo "Usage: $0 -d <data_path_under_dat> -s <search_policy> -k <kill_policy> -e <experiment> -x <suffix> -m <problem> -r <restriced_level>"
 }
 
 suffix=".lp.gz"
+freq=1
 
-while getopts ":hd:s:k:e:x:m:" arg; do
+while getopts ":hd:s:k:e:x:m:r:" arg; do
   case $arg in
     h)
       usage
@@ -36,6 +37,10 @@ while getopts ":hd:s:k:e:x:m:" arg; do
       suffix=${OPTARG}
       echo "data suffix: $suffix"
       ;;
+    r)
+      freq=${OPTARG}
+      echo "restriced level: $freq"
+      ;;
     :)
       echo "ERROR: -${OPTARG} requires an argument"
       usage
@@ -61,5 +66,5 @@ for file in `ls $dir`; do
   base=`sed "s/$suffix//g" <<< $file`
   echo $base
   sol=solution/$data/$base.sol
-  bin/scipdagger -f $dir/$file -o $sol --nodesel policy $searchPolicy --nodepru policy $killPolicy &> $resultDir/$data/$experiment/$base.log
+  bin/scipdagger -r $freq -s scip.set -f $dir/$file -o $sol --nodesel policy $searchPolicy --nodepru policy $killPolicy &> $resultDir/$data/$experiment/$base.log
 done

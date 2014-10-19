@@ -1,13 +1,14 @@
 #!/bin/bash
 
 usage() {
-  echo "Usage: $0 -d <data_path_under_dat> -x <suffix> -p <num_passes> -n <num_per_iter> -c <svm_c> -w <svm_w> -e <experiment> -m <problem>"
+  echo "Usage: $0 -d <data_path_under_dat> -x <suffix> -p <num_passes> -n <num_per_iter> -c <svm_c> -w <svm_w> -e <experiment> -m <problem> -r <restriced_level>"
 }
 
 suffix=".lp.gz"
 problem="general"
+freq=1
 
-while getopts ":hd:p:n:c:e:w:tx:m:" arg; do
+while getopts ":hd:p:n:c:e:w:tx:m:r:" arg; do
   case $arg in
     h)
       usage
@@ -44,6 +45,10 @@ while getopts ":hd:p:n:c:e:w:tx:m:" arg; do
     m)
       problem=${OPTARG}
       echo "problem: $problem"
+      ;;
+    r)
+      freq=${OPTARG}
+      echo "restriced level: $freq"
       ;;
     :)
       echo "ERROR: -${OPTARG} requires an argument"
@@ -92,7 +97,7 @@ for i in `seq 1 $numPasses`; do
     if [ -z $searchPolicy ]; then
       # First round, no policy yet
       echo "Gathering first iteration trajectory data"
-      bin/scipdagger -f $prob -o $sol --nodesel oracle --nodeseltrj $searchTrjIter --nodepru oracle --nodeprutrj $killTrjIter
+      bin/scipdagger -r $freq -s scip.set -f $prob -o $sol --nodesel oracle --nodeseltrj $searchTrjIter --nodepru oracle --nodeprutrj $killTrjIter
       cat $searchTrjIter >> $searchTrj
       cat $searchTrjIter.weight >> $searchTrj.weight
       cat $killTrjIter >> $killTrj
@@ -100,7 +105,7 @@ for i in `seq 1 $numPasses`; do
     else
       # Search with policy 
       echo "Gathering trajectory data with $policy"
-      bin/scipdagger -f $prob -o $sol --nodesel dagger $searchPolicy --nodeseltrj $searchTrjIter --nodepru dagger $killPolicy --nodeprutrj $killTrjIter
+      bin/scipdagger -r $freq -s scip.set -f $prob -o $sol --nodesel dagger $searchPolicy --nodeseltrj $searchTrjIter --nodepru dagger $killPolicy --nodeprutrj $killTrjIter
       cat $searchTrjIter >> $searchTrj
       cat $searchTrjIter.weight >> $searchTrj.weight
       cat $killTrjIter >> $killTrj

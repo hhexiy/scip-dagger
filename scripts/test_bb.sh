@@ -59,12 +59,8 @@ dir=dat/$data
 if ! [ -d $resultDir/$data/$experiment ]; then
   mkdir -p $resultDir/$data/$experiment
 fi
-if ! [ -d $resultDir/$data/$experiment/solution ]; then
-  mkdir -p $resultDir/$data/$experiment/solution
-fi
 for file in `ls $dir`; do
   base=`sed "s/$suffix//g" <<< $file`
   echo $base
-  sol=solution/$data/$base.sol
-  bin/scipdagger -r $freq -s scip.set -f $dir/$file -o $sol --nodesel policy $searchPolicy --nodepru policy $killPolicy &> $resultDir/$data/$experiment/$base.log
+  bin/scipdagger -r $freq -s scip.set -f $dir/$file --nodesel policy $searchPolicy --nodepru policy $killPolicy &> $resultDir/$data/$experiment/$base.log
 done

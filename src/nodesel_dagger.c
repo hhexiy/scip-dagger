@@ -79,16 +79,6 @@ void SCIPnodeseldaggerPrintStatistics(
          "  selection time   : %10.2f\n", SCIPnodeselGetTime(nodesel));
 }
 
-/** copy method for node selector plugins (called when SCIP copies plugins) */
-static
-SCIP_DECL_NODESELCOPY(nodeselCopyDagger)
-{  /*lint --e{715}*/
-   assert(scip != NULL);
-   SCIP_CALL( SCIPincludeNodeselDagger(scip) );
-
-   return SCIP_OKAY;
-}
-
 /** solving process initialization method of node selector (called when branch and bound process is about to begin) */
 static
 SCIP_DECL_NODESELINIT(nodeselInitDagger)
@@ -397,7 +387,7 @@ SCIP_RETCODE SCIPincludeNodeselDagger(
    assert(nodesel != NULL);
 
    /* set non fundamental callbacks via setter functions */
-   SCIP_CALL( SCIPsetNodeselCopy(scip, nodesel, nodeselCopyDagger) );
+   SCIP_CALL( SCIPsetNodeselCopy(scip, nodesel, NULL) );
    SCIP_CALL( SCIPsetNodeselInit(scip, nodesel, nodeselInitDagger) );
    SCIP_CALL( SCIPsetNodeselExit(scip, nodesel, nodeselExitDagger) );
    SCIP_CALL( SCIPsetNodeselFree(scip, nodesel, nodeselFreeDagger) );

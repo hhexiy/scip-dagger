@@ -1,0 +1,83 @@
+# verbosity level of output
+# [type: int, range: [0,5], default: 4]
+display/verblevel = 3
+
+#######################
+# display setting
+#######################
+
+# display activation status of display column <lpiterations> (0: off, 1: auto, 2:on)
+# # [type: int, range: [0,2], default: 1]
+display/lpiterations/active = 0
+
+# display activation status of display column <lpavgiterations> (0: off, 1: auto, 2:on)
+# [type: int, range: [0,2], default: 1]
+display/lpavgiterations/active = 0
+
+# display activation status of display column <lpcond> (0: off, 1: auto, 2:on)
+# [type: int, range: [0,2], default: 1]
+display/lpcond/active = 0
+
+# display activation status of display column <memused> (0: off, 1: auto, 2:on)
+# [type: int, range: [0,2], default: 1]
+display/memused/active = 0
+
+# display activation status of display column <nexternbranchcands> (0: off, 1: auto, 2:on)
+# [type: int, range: [0,2], default: 1]
+display/nexternbranchcands/active = 0
+
+# display activation status of display column <vars> (0: off, 1: auto, 2:on)
+# [type: int, range: [0,2], default: 1]
+display/vars/active = 0
+
+# display activation status of display column <conss> (0: off, 1: auto, 2:on)
+# [type: int, range: [0,2], default: 1]
+display/conss/active = 0
+
+# display activation status of display column <curconss> (0: off, 1: auto, 2:on)
+# [type: int, range: [0,2], default: 1]
+display/curconss/active = 0
+
+# display activation status of display column <curcols> (0: off, 1: auto, 2:on)
+# [type: int, range: [0,2], default: 1]
+display/curcols/active = 0
+
+# display activation status of display column <currows> (0: off, 1: auto, 2:on)
+# [type: int, range: [0,2], default: 1]
+display/currows/active = 0
+
+# display activation status of display column <cuts> (0: off, 1: auto, 2:on)
+# [type: int, range: [0,2], default: 1]
+display/cuts/active = 0
+
+# display activation status of display column <separounds> (0: off, 1: auto, 2:on)
+# [type: int, range: [0,2], default: 1]
+display/separounds/active = 0
+
+# display activation status of display column <poolsize> (0: off, 1: auto, 2:on)
+# [type: int, range: [0,2], default: 1]
+display/poolsize/active = 0
+
+# display activation status of display column <conflicts> (0: off, 1: auto, 2:on)
+# [type: int, range: [0,2], default: 1]
+display/conflicts/active = 0
+
+# display activation status of display column <strongbranchs> (0: off, 1: auto, 2:on)
+# [type: int, range: [0,2], default: 1]
+display/strongbranchs/active = 0
+
+# display activation status of display column <pseudoobj> (0: off, 1: auto, 2:on)
+# [type: int, range: [0,2], default: 1]
+display/pseudoobj/active = 0
+
+# display activation status of display column <estimate> (0: off, 1: auto, 2:on)
+# # [type: int, range: [0,2], default: 1]
+display/estimate/active = 0
+
+# display activation status of display column <maxdepth> (0: off, 1: auto, 2:on)
+# # [type: int, range: [0,2], default: 1]
+display/maxdepth/active = 0
+
+# display activation status of display column <curdualbound> (0: off, 1: auto, 2:on)
+# # [type: int, range: [0,2], default: 1]
+display/curdualbound/active = 0

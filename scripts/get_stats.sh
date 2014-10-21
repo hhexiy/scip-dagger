@@ -1,10 +1,10 @@
 #!/bin/bash
 
 usage() {
-  echo "Usage: $0 -d <data_path_under_dat> -e <experiment> -x <suffix>"
+  echo "Usage: $0 -d <data_path_under_dat> -e <experiment> -c <svm_c> -w <svm_w> -n <policy_id> -x <suffix>"
 }
 
-while getopts ":hd:e:rx:" arg; do
+while getopts ":hd:e:x:c:w:n:" arg; do
   case $arg in
     h)
       usage
@@ -12,15 +12,21 @@ while getopts ":hd:e:rx:" arg; do
       ;;
     d)
       data=${OPTARG%/}
-      echo "get statistics of data: $data"
+      ;;
+    c)
+      c=${OPTARG}
+      ;;
+    w)
+      w=${OPTARG}
+      ;;
+    n)
+      n=${OPTARG}
       ;;
     e)
       experiment=${OPTARG}
-      echo "experiment: $experiment"
       ;;
     x)
       suffix=${OPTARG}
-      echo "data suffix: $suffix"
       ;;
     :)
       echo "ERROR: -${OPTARG} requires an argument"
@@ -35,10 +41,13 @@ while getopts ":hd:e:rx:" arg; do
   esac
 done
 
+
 datDir=dat/$data
+experiment=$experiment/c${c}w${w}/policy$n
 resultDir=/fs/clip-scratch/hhe/scip-dagger/result
 output=$resultDir/$data/$experiment/stats
 
+echo "getting stats of $experiment for $data (suffix=$suffix)"
 # print header
 printf "%-20s %-5s %-5s %-6s %-6s %-10s %-10s %-5s\n" \
 "problem" "nvars" "ncons" "nnodes" "time" "LB" "UB" "gap" > $output

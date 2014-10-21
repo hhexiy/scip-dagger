@@ -170,6 +170,8 @@ SCIP_RETCODE processShellArguments(
    SCIP_Bool solrequired = FALSE;
    SCIP_Bool quiet;
    int freq = 1;                             /**< frequency of heuristics and separators */ 
+   SCIP_Longint nodelimit = -1;              /**< maximum number of nodes to process */
+   SCIP_Real timelimit = -1;                 /**< maximum number of nodes to process */
    SCIP_Bool paramerror;
    int i;
 
@@ -213,6 +215,28 @@ SCIP_RETCODE processShellArguments(
          else
          {
             printf("missing frequency after parameter '-r'\n");
+            paramerror = TRUE;
+         }
+      }
+      else if( strcmp(argv[i], "-n") == 0 )
+      {
+         i++;
+         if( i < argc )
+            nodelimit = atoll(argv[i]);
+         else
+         {
+            printf("missing node limit after parameter '-n'\n");
+            paramerror = TRUE;
+         }
+      }
+      else if( strcmp(argv[i], "-t") == 0 )
+      {
+         i++;
+         if( i < argc )
+            timelimit = atof(argv[i]);
+         else
+         {
+            printf("missing time limit after parameter '-t'\n");
             paramerror = TRUE;
          }
       }
@@ -378,6 +402,18 @@ SCIP_RETCODE processShellArguments(
             printf("Disabled heuristics and separators\n");
       }
 
+      if( timelimit > -1 )
+      {
+         SCIP_CALL( SCIPsetRealParam(scip, "limits/time", timelimit) );
+         printf("Maximal time to run: %.2f\n", timelimit);
+      }
+
+      if( nodelimit > -1 )
+      {
+         SCIP_CALL( SCIPsetLongintParam(scip, "limits/nodes", nodelimit) );
+         printf("Maximum number of nodes to explore: %"SCIP_LONGINT_FORMAT"\n", nodelimit);
+      }
+
       if( logname != NULL )
       {
          SCIPsetMessagehdlrLogfile(scip, logname);
@@ -420,7 +456,7 @@ SCIP_RETCODE processShellArguments(
       if( nodeselname != NULL )
       {
          SCIP_Bool ignored = FALSE;
-         fprintf(stderr, "include nodesel %s\n", nodeselname);
+         printf("include nodesel %s\n", nodeselname);
          if( strcmp(nodeselname, "oracle") == 0 )
          {
             SCIP_CALL( SCIPincludeNodeselOracle(scip) );

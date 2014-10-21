@@ -71,16 +71,6 @@ void SCIPnodeprupolicyPrintStatistics(
          "  pruning time     : %10.2f\n", SCIPnodepruGetTime(nodepru));
 }
 
-/** copy method for node pruner plugins (called when SCIP copies plugins) */
-static
-SCIP_DECL_NODEPRUCOPY(nodepruCopyPolicy)
-{  /*lint --e{715}*/
-   assert(scip != NULL);
-   SCIP_CALL( SCIPincludeNodepruPolicy(scip) );
-
-   return SCIP_OKAY;
-}
-
 /** solving process initialization method of node pruner (called when branch and bound process is about to begin) */
 static
 SCIP_DECL_NODEPRUINIT(nodepruInitPolicy)
@@ -214,7 +204,7 @@ SCIP_RETCODE SCIPincludeNodepruPolicy(
    assert(nodepru != NULL);
 
    /* set non fundamental callbacks via setter functions */
-   SCIP_CALL( SCIPsetNodepruCopy(scip, nodepru, nodepruCopyPolicy) );
+   SCIP_CALL( SCIPsetNodepruCopy(scip, nodepru, NULL) );
    SCIP_CALL( SCIPsetNodepruInit(scip, nodepru, nodepruInitPolicy) );
    SCIP_CALL( SCIPsetNodepruExit(scip, nodepru, nodepruExitPolicy) );
    SCIP_CALL( SCIPsetNodepruFree(scip, nodepru, nodepruFreePolicy) );

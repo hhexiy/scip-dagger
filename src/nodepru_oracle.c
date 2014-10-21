@@ -43,15 +43,6 @@ struct SCIP_NodepruData
  * Callback methods of node pruner
  */
 
-/** copy method for node pruner plugins (called when SCIP copies plugins) */
-static
-SCIP_DECL_NODEPRUCOPY(nodepruCopyOracle)
-{  /*lint --e{715}*/
-   assert(scip != NULL);
-   SCIP_CALL( SCIPincludeNodepruOracle(scip) );
-
-   return SCIP_OKAY;
-}
 
 /** solving process initialization method of node pruner (called when branch and bound process is about to begin) */
 static
@@ -229,7 +220,7 @@ SCIP_RETCODE SCIPincludeNodepruOracle(
    assert(nodepru != NULL);
 
    /* set non fundamental callbacks via setter functions */
-   SCIP_CALL( SCIPsetNodepruCopy(scip, nodepru, nodepruCopyOracle) );
+   SCIP_CALL( SCIPsetNodepruCopy(scip, nodepru, NULL) );
    SCIP_CALL( SCIPsetNodepruInit(scip, nodepru, nodepruInitOracle) );
    SCIP_CALL( SCIPsetNodepruExit(scip, nodepru, nodepruExitOracle) );
    SCIP_CALL( SCIPsetNodepruFree(scip, nodepru, nodepruFreeOracle) );

@@ -1,7 +1,7 @@
 #!/bin/bash
-
+set -e;
 usage() {
-  echo "Usage: $0 -d <data_path_under_dat> -e <experiment> -c <svm_c> -w <svm_w> -n <policy_id> -x <suffix>"
+  echo "Usage: $0 -d <data_path_under_dat> -e <experiment> -x <suffix>"
 }
 
 while getopts ":hd:e:x:c:w:n:" arg; do
@@ -12,15 +12,6 @@ while getopts ":hd:e:x:c:w:n:" arg; do
       ;;
     d)
       data=${OPTARG%/}
-      ;;
-    c)
-      c=${OPTARG}
-      ;;
-    w)
-      w=${OPTARG}
-      ;;
-    n)
-      n=${OPTARG}
       ;;
     e)
       experiment=${OPTARG}
@@ -43,9 +34,6 @@ done
 
 
 datDir=dat/$data
-if ! [ -z $c ]; then
-   experiment=$experiment/c${c}w${w}/policy$n
-fi
 resultDir=/fs/clip-scratch/hhe/scip-dagger/result
 output=$resultDir/$data/$experiment/stats
 
@@ -57,14 +45,8 @@ printf "%-20s %-6s %-6s %-10s %-10s %-10s %-5s %-5s\n" \
 fail=0
 for prob in `ls $datDir`; do
   base=`sed "s/$suffix//g" <<< $prob`
-  #echo $base
   # read scip log 
   log=$resultDir/$data/$experiment/$base.log
-  inf=$(grep "infeasible" $log | wc -l)
-  if ! [[ "$inf" -eq "0" ]]; then
-     fail=$((fail+1))
-     continue
-  fi
   sol=solution/$data/$base.sol
   if ! [ -e $log ]; then
     echo "missing $base.log"
@@ -73,24 +55,24 @@ for prob in `ls $datDir`; do
   # second line is variables/constraints in the presolved problem
   #nvars=$(grep "Variables" $log | head -n 1 | sed "s/\s\+/ /g" | cut -d' ' -f4) 
   #nconstrs=$(grep "Constraints" $log | head -n 1 | sed "s/\s\+/ /g" | cut -d' ' -f4) 
-  nnodes=$(grep "Solving Nodes" $log | sed "s/\s\+/ /g" | cut -d' ' -f4) 
-  time=$(grep "Solving Time" $log | sed "s/\s\+/ /g" | cut -d' ' -f5) 
-  if [[ $nnodes -eq 0 ]]; then
-   db=$(grep "  Dual Bound" $log | sed "s/\s\+/ /g" | cut -d' ' -f5) 
-   pb=$(grep "  Primal Bound" $log | sed "s/\s\+/ /g" | cut -d' ' -f5) 
-  else
-   db=$(grep "^Dual Bound" $log | sed "s/\s\+/ /g" | cut -d' ' -f4) 
-   pb=$(grep "^Primal Bound" $log | sed "s/\s\+/ /g" | cut -d' ' -f4) 
-  fi
-  igap=$(grep "^Gap" $log | sed "s/\s\+/ /g" | cut -d' ' -f3) 
-  if [ $igap == "infinite" ]; then
-     fail=$((fail+1))
-     continue
-  fi
+  nnodes=$(grep "Explored" $log | cut -d' ' -f2) 
+  time=$(grep "Solving time" $log | cut -d' ' -f3) 
+  db=$(grep "^Best objective" $log | cut -d' ' -f6) 
+  db=${db%,}
+  pb=$(grep "^Best objective" $log | cut -d' ' -f3) 
+  pb=${pb%,}
   opt=$(head -n 1 $sol | sed "s/\s\+/ /g" | cut -d' ' -f3)
   ogap=$(echo "$pb $opt" | awk 'function abs(x){return ((x < 0.0) ? -x : x)} {print abs($1-$2)}')
-  printf "%-20s %-6d %-6.2f %-10.2f %-10.2f %-10.2f %-5.2f %-5.2f\n" \
-  $base $nnodes $time $db $pb $opt $ogap $igap >> $output
+  igap=$(grep "^Best objective" $log | cut -d' ' -f8) 
+  igap=${igap%\%}
+  if [ $pb == "-" ]; then
+   #printf "%-20s %-6d %-6.2f %-10.2f %-10s %-10.2f %-5s %-5s\n" \
+   #$base $nnodes $time $db $pb $opt $ogap $igap >> $output
+   fail=$((fail+1))
+  else
+   printf "%-20s %-6d %-6.2f %-10.2f %-10.2f %-10.2f %-5.2f %-5.2f\n" \
+   $base $nnodes $time $db $pb $opt $ogap $igap >> $output
+  fi
 done
 
 # compute average

@@ -157,8 +157,8 @@ void SCIPcalcNodepruFeat(
       feat->vals[SCIP_FEATNODEPRU_GLOBALUPPERBOUND] = upperbound / rootlowerbound;
 
    feat->vals[SCIP_FEATNODEPRU_NSOLUTION] = SCIPgetNSolsFound(scip);
-   feat->vals[SCIP_FEATNODEPRU_PLUNGEDEPTH] = SCIPgetPlungeDepth(scip) / (SCIP_Real)feat->maxdepth;
-   feat->vals[SCIP_FEATNODEPRU_RELATIVEDEPTH] = feat->depth / (SCIP_Real)feat->maxdepth;
+   feat->vals[SCIP_FEATNODEPRU_PLUNGEDEPTH] = SCIPgetPlungeDepth(scip);
+   feat->vals[SCIP_FEATNODEPRU_RELATIVEDEPTH] = (SCIP_Real)feat->depth / (SCIP_Real)feat->maxdepth * 10.0;
 
    /* node features */
    if( upperboundinf )
@@ -200,15 +200,13 @@ void SCIPcalcNodeselFeat(
    SCIP_Real lowerbound;            /**< global lower bound */
    SCIP_Real upperbound;           /**< global upper bound */
    SCIP_VAR* branchvar;
-   SCIP_COL* branchvarcol;
    SCIP_BOUNDCHG* boundchgs;
    SCIP_BRANCHDIR branchdirpreferred;
    SCIP_Real branchbound;
    SCIP_Bool haslp;
+   SCIP_Bool upperboundinf;
    SCIP_Real varsol;
    SCIP_Real varrootsol;
-   SCIP_Real varobj;                /**< coefficent in the objective function */
-   int varcolsize;                  /**< number of nonzero entries in the column */
 
    assert(node != NULL);
    assert(SCIPnodeGetDepth(node) != 0);
@@ -228,25 +226,44 @@ void SCIPcalcNodeselFeat(
    assert(!SCIPsetIsInfinity(scip->set, rootlowerbound));
    lowerbound = SCIPgetLowerbound(scip);
    upperbound = SCIPgetUpperbound(scip);
-   /* if we didn't find a solution yet, the upper bound is usually very bad:
-    * use only 20% of the gap as upper bound
-    */
-   if( SCIPgetNSolsFound(scip) == 0 )
+   if( SCIPsetIsInfinity(scip->set, upperbound)
+      || SCIPsetIsInfinity(scip->set, -upperbound) )
+      upperboundinf = TRUE;
+   else
+      upperboundinf = FALSE;
+   feat->depth = SCIPnodeGetDepth(node);
+
+   /* global features */
+   if( SCIPsetIsEQ(scip->set, upperbound, lowerbound) )
+      feat->vals[SCIP_FEATNODESEL_GAP] = 0;
+   else if( SCIPsetIsZero(scip->set, lowerbound)
+      || upperboundinf ) 
+      feat->vals[SCIP_FEATNODESEL_GAPINF] = 1;
+   else
+      feat->vals[SCIP_FEATNODESEL_GAP] = (upperbound - lowerbound)/REALABS(lowerbound);
+
+   if( upperboundinf )
+   {
+      feat->vals[SCIP_FEATNODESEL_GLOBALUPPERBOUNDINF] = 1;
+      /* use only 20% of the gap as upper bound */
       upperbound = lowerbound + 0.2 * (upperbound - lowerbound);
+   }
+   else
+      feat->vals[SCIP_FEATNODESEL_GLOBALUPPERBOUND] = upperbound / rootlowerbound;
+
+   feat->vals[SCIP_FEATNODESEL_PLUNGEDEPTH] = SCIPgetPlungeDepth(scip);
+   feat->vals[SCIP_FEATNODESEL_RELATIVEDEPTH] = (SCIP_Real)feat->depth / (SCIP_Real)feat->maxdepth * 10.0;
+
 
    /* currently only support branching on one variable */
    branchvar = boundchgs[0].var; 
    branchbound = boundchgs[0].newbound;
    branchdirpreferred = SCIPvarGetBranchDirection(branchvar);
-   branchvarcol = SCIPvarGetCol(branchvar);
-   varobj = SCIPcolGetObj(branchvarcol);
-   varcolsize = SCIPcolGetNNonz(branchvarcol);
 
    haslp = SCIPtreeHasFocusNodeLP(scip->tree);
    varsol = SCIPvarGetSol(branchvar, haslp);
    varrootsol = SCIPvarGetRootSol(branchvar);
 
-   feat->depth = SCIPnodeGetDepth(node);
    feat->boundtype = boundchgs[0].boundtype;
 
    /* calculate features */
@@ -266,10 +283,6 @@ void SCIPcalcNodeselFeat(
    else if( nodetype == SCIP_NODETYPE_LEAF )
       feat->vals[SCIP_FEATNODESEL_TYPE_LEAF] = 1;
 
-   if( varcolsize == 0 )
-      feat->vals[SCIP_FEATNODESEL_BRANCHVAR_NOCONSTR] = 1;
-   else
-      feat->vals[SCIP_FEATNODESEL_BRANCHVAR_OBJCONSTR] = varobj / varcolsize;
    feat->vals[SCIP_FEATNODESEL_BRANCHVAR_BOUNDLPDIFF] = branchbound - varsol;
    feat->vals[SCIP_FEATNODESEL_BRANCHVAR_ROOTLPDIFF] = varrootsol - varsol;
 
@@ -284,6 +297,7 @@ void SCIPcalcNodeselFeat(
       feat->boundtype == SCIP_BOUNDTYPE_LOWER ? 
       SCIPvarGetAvgInferences(branchvar, scip->stat, SCIP_BRANCHDIR_UPWARDS) / (SCIP_Real)feat->maxdepth : 
       SCIPvarGetAvgInferences(branchvar, scip->stat, SCIP_BRANCHDIR_DOWNWARDS) / (SCIP_Real)feat->maxdepth;
+
 
 }
 

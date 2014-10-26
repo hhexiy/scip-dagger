@@ -1,13 +1,14 @@
 #!/bin/bash
 
 usage() {
-  echo "Usage: $0 -d <data_path_under_dat> -s <search_policy> -k <kill_policy> -e <experiment> -x <suffix> -m <problem> -r <restriced_level>"
+  echo "Usage: $0 -d <data_path_under_dat> -s <search_policy> -k <kill_policy> -e <experiment> -x <suffix> -r <restriced_level>"
 }
 
 suffix=".lp.gz"
 freq=1
+time=-1
 
-while getopts ":hd:s:k:e:x:m:r:" arg; do
+while getopts ":hd:s:k:e:x:r:t:" arg; do
   case $arg in
     h)
       usage
@@ -29,10 +30,6 @@ while getopts ":hd:s:k:e:x:m:r:" arg; do
       experiment=${OPTARG}
       echo "experiment: $experiment"
       ;;
-    m)
-      problem=${OPTARG}
-      echo "problem: $problem"
-      ;;
     x)
       suffix=${OPTARG}
       echo "data suffix: $suffix"
@@ -40,6 +37,10 @@ while getopts ":hd:s:k:e:x:m:r:" arg; do
     r)
       freq=${OPTARG}
       echo "restriced level: $freq"
+      ;;
+    t)
+      time=${OPTARG}
+      echo "time limit: $time"
       ;;
     :)
       echo "ERROR: -${OPTARG} requires an argument"
@@ -62,6 +63,11 @@ fi
 for file in `ls $dir`; do
   base=`sed "s/$suffix//g" <<< $file`
   echo $base
-  bin/scipdagger -r $freq -s scip.set -f $dir/$file --nodesel policy $searchPolicy --nodepru policy $killPolicy &> $resultDir/$data/$experiment/$base.log
+  if [ -z $searchPolicy ]; then
+   bin/scipdagger -r $freq -s scip.set -t $time -f $dir/$file --nodepru policy $killPolicy &> $resultDir/$data/$experiment/$base.log
+  elif [ -z $killPolicy ]; then
+   bin/scipdagger -r $freq -s scip.set -t $time -f $dir/$file --nodesel policy $searchPolicy &> $resultDir/$data/$experiment/$base.log
+  else
+   bin/scipdagger -r $freq -s scip.set -t $time -f $dir/$file --nodesel policy $searchPolicy --nodepru policy $killPolicy &> $resultDir/$data/$experiment/$base.log
+  fi
 done
-

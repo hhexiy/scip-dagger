@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 usage() {
   echo "Usage: $0 -d <data_path_under_dat> -x <suffix> -p <num_passes> -n <num_per_iter> -c <svm_c> -w <svm_w> -e <experiment> -m <problem> -r <restriced_level>"
 }

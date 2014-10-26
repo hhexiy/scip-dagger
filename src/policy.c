@@ -104,10 +104,13 @@ void SCIPcalcNodeScore(
    SCIP_Real* weights = policy->weights;
    SCIP_Real* featvals = SCIPfeatGetVals(feat);
 
-   assert(offset + SCIPfeatGetSize(feat) <= policy->size);
-
-   for( i = 0; i < SCIPfeatGetSize(feat); i++ )
-      score += featvals[i] * weights[i+offset];
+   if( (offset + SCIPfeatGetSize(feat)) > policy->size )
+      score = 0;
+   else
+   {
+      for( i = 0; i < SCIPfeatGetSize(feat); i++ )
+         score += featvals[i] * weights[i+offset];
+   }
 
    SCIPnodeSetScore(node, score);
    SCIPdebugMessage("score of node  #%"SCIP_LONGINT_FORMAT": %f\n", SCIPnodeGetNumber(node), SCIPnodeGetScore(node));

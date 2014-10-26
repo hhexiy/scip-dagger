@@ -55,6 +55,7 @@ struct SCIP_NodepruData
    int                nnodes;             /**< number of nodes checked */
    int                nfalsepos;           /**< number of optimal nodes pruned */
    int                nfalseneg;           /**< number of non-optimal nodes not pruned */
+   unsigned int       randseed;
 
 };
 
@@ -138,6 +139,7 @@ SCIP_DECL_NODEPRUINIT(nodepruInitDagger)
    nodeprudata->nnodes = 0;
    nodeprudata->nfalsepos = 0;
    nodeprudata->nfalseneg = 0;
+   nodeprudata->randseed = 0;
 
    return SCIP_OKAY;
 }
@@ -192,6 +194,7 @@ SCIP_DECL_NODEPRUPRUNE(nodepruPruneDagger)
 {
    SCIP_NODEPRUDATA* nodeprudata;
    SCIP_Bool isoptimal;
+   SCIP_Real rand;
 
    assert(nodepru != NULL);
    assert(strcmp(SCIPnodepruGetName(nodepru), NODEPRU_NAME) == 0);
@@ -211,15 +214,30 @@ SCIP_DECL_NODEPRUPRUNE(nodepruPruneDagger)
    {
       SCIPcalcNodepruFeat(scip, node, nodeprudata->feat);
       SCIPcalcNodeScore(node, nodeprudata->feat, nodeprudata->policy);
+      if( nodeprudata->checkopt )
+         SCIPnodeCheckOptimal(scip, node, nodeprudata->optsol);
+      isoptimal = SCIPnodeIsOptimal(node);
+      rand = SCIPgetRandomReal(0.0, 1.0, &nodeprudata->randseed);
 
-      if( SCIPsetIsGT(scip->set, SCIPnodeGetScore(node), 0) )
-      {
-         *prune = TRUE;
-         SCIPdebugMessage("pruning node: #%"SCIP_LONGINT_FORMAT"\n", SCIPnodeGetNumber(node));
-         nodeprudata->nprunes++;
-      }
+      if( rand < 0.2 )
+         *prune = (isoptimal == FALSE);
       else
-         *prune = FALSE;
+      {
+         if( SCIPsetIsGT(scip->set, SCIPnodeGetScore(node), 0) )
+         {
+            /* don't prune optimal */
+            if( isoptimal )
+               *prune = FALSE;
+            else
+            {
+               *prune = TRUE;
+               SCIPdebugMessage("pruning node: #%"SCIP_LONGINT_FORMAT"\n", SCIPnodeGetNumber(node));
+               nodeprudata->nprunes++;
+            }
+         }
+         else
+            *prune = FALSE;
+      }
       nodeprudata->nnodes++;
 
 #ifndef SCIP_DEBUG
@@ -227,9 +245,6 @@ SCIP_DECL_NODEPRUPRUNE(nodepruPruneDagger)
       if( nodeprudata->trjfile != NULL )
       {
 #endif
-         if( nodeprudata->checkopt )
-            SCIPnodeCheckOptimal(scip, node, nodeprudata->optsol);
-         isoptimal = SCIPnodeIsOptimal(node);
          SCIPdebugMessage("node pruning feature of node #%"SCIP_LONGINT_FORMAT"\n", SCIPnodeGetNumber(node));
          SCIPfeatLIBSVMPrint(scip, nodeprudata->trjfile, nodeprudata->wfile, nodeprudata->feat, isoptimal ? -1 : 1);
          if( isoptimal && *prune )

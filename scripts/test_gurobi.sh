@@ -1,13 +1,15 @@
 #!/bin/bash
 
 usage() {
-  echo "Usage: $0 -d <data_path_under_dat> -s <search_policy> -k <kill_policy> -e <experiment> -x <suffix> -m <problem> -r <restriced_level>"
+  echo "Usage: $0 -d <data_path_under_dat> -n <node_limit> -t <time_limit> -r <restriced_level> -x <suffix> -e <experiment>"
 }
 
 suffix=".lp.gz"
 freq=1
+nnode=-1
+time=500
 
-while getopts ":hd:s:k:e:x:m:r:" arg; do
+while getopts ":hd:n:t:x:r:e:" arg; do
   case $arg in
     h)
       usage
@@ -17,21 +19,9 @@ while getopts ":hd:s:k:e:x:m:r:" arg; do
       data=${OPTARG%/}
       echo "test data: $data"
       ;;
-    s)
-      searchPolicy=${OPTARG}
-      echo "search policy: $searchPolicy"
-      ;;
-    k)
-      killPolicy=${OPTARG}
-      echo "kill policy: $killPolicy"
-      ;;
     e)
       experiment=${OPTARG}
       echo "experiment: $experiment"
-      ;;
-    m)
-      problem=${OPTARG}
-      echo "problem: $problem"
       ;;
     x)
       suffix=${OPTARG}
@@ -40,6 +30,14 @@ while getopts ":hd:s:k:e:x:m:r:" arg; do
     r)
       freq=${OPTARG}
       echo "restriced level: $freq"
+      ;;
+    n)
+      nnode=${OPTARG}
+      echo "node limit: $nnode"
+      ;;
+    t)
+      time=${OPTARG}
+      echo "time limit: $time"
       ;;
     :)
       echo "ERROR: -${OPTARG} requires an argument"
@@ -62,6 +60,5 @@ fi
 for file in `ls $dir`; do
   base=`sed "s/$suffix//g" <<< $file`
   echo $base
-  bin/scipdagger -r $freq -s scip.set -f $dir/$file --nodesel policy $searchPolicy --nodepru policy $killPolicy &> $resultDir/$data/$experiment/$base.log
+  /fs/clip-ml/he/ilp-bb/bin/mip_gurobi -f $dir/$file -p -th 1 -n $nnode -t $time &> $resultDir/$data/$experiment/$base.log
 done
-

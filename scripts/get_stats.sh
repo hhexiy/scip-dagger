@@ -1,5 +1,4 @@
 #!/bin/bash
-
 usage() {
   echo "Usage: $0 -d <data_path_under_dat> -e <experiment> -c <svm_c> -w <svm_w> -n <policy_id> -x <suffix>"
 }
@@ -57,7 +56,7 @@ printf "%-20s %-6s %-6s %-10s %-10s %-10s %-5s %-5s\n" \
 fail=0
 for prob in `ls $datDir`; do
   base=`sed "s/$suffix//g" <<< $prob`
-  #echo $base
+  echo $base
   # read scip log 
   log=$resultDir/$data/$experiment/$base.log
   inf=$(grep "infeasible" $log | wc -l)

@@ -1,9 +1,16 @@
 import sys, csv
 import numpy as np
 import matplotlib.pylab as plt
+import matplotlib
 from sklearn import preprocessing
-
 min_max_scaler = preprocessing.MinMaxScaler()
+
+# avoid type 3 fonts
+matplotlib.rcParams['ps.useafm'] = True
+matplotlib.rcParams['pdf.use14corefonts'] = True
+matplotlib.rcParams['text.usetex'] = True
+
+plt.rcParams['ytick.major.pad']='8'
 
 def read_obj(filename, scip_filename):
   time = 0
@@ -64,48 +71,41 @@ if __name__ == '__main__':
       time_gap[i][i] = 1.0
    max_value = np.max(np.amax(time_gap, axis=0))
    min_value = np.min(np.amin(time_gap, axis=0))
+   # add scip (default)
    print time_gap
 
    fig = plt.figure()
    ax = fig.add_subplot(1, 1, 1)
-   img = ax.imshow(np.array(time_gap), vmin=min_value, vmax=max_value, cmap=plt.cm.jet, interpolation='nearest')
-   data = ['MIK', 'CORLAT', 'Regions', 'Hybrid']
-   ax.xaxis.tick_top()
-   ax.set_xticks(range(4))
-   ax.set_xticklabels(data, rotation=20, size=20)
-   ax.set_yticks(range(4))
-   ax.set_yticklabels(data, size=20)
-   ax.set_xlabel("Test Dataset", size=20, labelpad=8)
-   ax.set_ylabel("Policy Dataset", size=20, labelpad=8)
 
-   #fig.subplots_adjust(right=0.8)
-   #cbar_ax = fig.add_axes([0.85, 0.1, 0.04, 0.8])
-   cbar = plt.colorbar(img)
-   cbar.ax.set_ylabel("1 / (time + opt. gap)", size=20, rotation=270, labelpad=8)
-   fig.tight_layout(w_pad=5)
-   plt.savefig("results/conf_mat.pdf")
+   transpose = True
+   if not transpose:
+      img = ax.imshow(np.array(time_gap), vmin=min_value, vmax=max_value, cmap=plt.cm.jet, interpolation='nearest')
+      data = ['MIK', 'CORLAT', 'Regions', 'Hybrid']
+      ax.xaxis.tick_top()
+      ax.set_xticks(range(4))
+      ax.set_xticklabels(data, rotation=10, size=20)
+      ax.set_yticks(range(4))
+      ax.set_yticklabels(data, size=20)
+      ax.set_xlabel("Test Dataset", size=20, labelpad=8)
+      ax.set_ylabel("Policy Dataset", size=20, labelpad=8)
 
-  # fig, (ax1, ax2) = plt.subplots(1, 2)
-  #
-  # img1 = ax1.imshow(np.array(arr1), vmin=min_value, vmax=max_value, cmap=plt.cm.jet, interpolation='nearest')
-  # img2 = ax2.imshow(np.array(arr2), vmin=min_value, vmax=max_value, cmap=plt.cm.jet, interpolation='nearest')
-  # fig.subplots_adjust(wspace=0.5)
-  #
-  # data = ['MIK', 'Regions1', 'Regions2', 'Hybrid']
-  # for ax in [ax1, ax2]:
-  #   ax.xaxis.tick_top()
-  #   ax.set_xticks(range(4))
-  #   ax.set_xticklabels(data, rotation=40)
-  #   ax.set_yticks(range(4))
-  #   ax.set_yticklabels(data)
-  # ax1.set_xlabel("Test Dataset")
-  # ax2.set_xlabel("Test Dataset")
-  # ax1.set_ylabel("Policy Dataset")
-  # fig.tight_layout(w_pad=5)
-  #
-  # fig.subplots_adjust(right=0.8)
-  # cbar_ax = fig.add_axes([0.85, 0.32, 0.02, 0.36])
-  # fig.colorbar(img2, cax=cbar_ax)
-  #
-  # plt.savefig("conf_mat.pdf")
-  #
+      cbar = plt.colorbar(img)
+      cbar.ax.set_ylabel("1 / (time + opt. gap)", size=20, rotation=270, labelpad=8)
+      fig.tight_layout(w_pad=5)
+      plt.savefig("results/conf_mat.pdf")
+   else:
+      img = ax.imshow(np.transpose(np.array(time_gap)), vmin=min_value, vmax=max_value, cmap=plt.cm.jet, interpolation='nearest')
+      data = ['MIK', 'CORLAT', 'Regions', 'Hybrid']
+      ax.yaxis.tick_top()
+      ax.set_yticks(range(4))
+      ax.set_yticklabels(data, rotation=10, size=20)
+      ax.set_xticks(range(5))
+      ax.set_xticklabels(data+['SCIP'], size=20)
+      ax.set_ylabel("Test Dataset", size=20, labelpad=8)
+      ax.set_xlabel("Policy Dataset", size=20, labelpad=8)
+
+      cbar = plt.colorbar(img)
+      cbar.ax.set_xlabel("1 / (time + opt. gap)", size=20, rotation=270, labelpad=8)
+      fig.tight_layout(w_pad=5)
+      plt.savefig("results/conf_mat.pdf")
+

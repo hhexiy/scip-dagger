@@ -488,6 +488,7 @@ SCIP_Real SCIPfeatGetWeight(
    )
 {
    assert(feat != NULL);
+   /* depth=1 => weight = 5; depth=0.6*maxdepth => weight = 1 */
    return 5 * exp(-(feat->depth-1) / (0.6*feat->maxdepth) * 1.61);
 }
 

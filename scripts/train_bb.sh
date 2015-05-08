@@ -67,7 +67,11 @@ done
 
 datDir="dat/$data"
 solDir="solution/$data"
-scratch="/scratch0"
+scratch="/fs/clip-scratch"
+
+if [ -z $experiment ]; then
+   experiment=c${svmc}w${svmw}
+fi
 
 trjDir=$scratch/hhe/scip-dagger/trj/$data/$experiment
 if ! [ -d $trjDir ]; then mkdir -p $trjDir; fi

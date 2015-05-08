@@ -62,7 +62,7 @@ nnodes=$(tail -n 1 $stats | sed 's/\s\+/ /g' | cut -d' ' -f2)
 
 # full scip
 #echo "running scip with full feature"
-#echo "scip full" >> $result
+echo "scip full" >> $result
 #./scripts/test_scip.sh -d $data -x $suffix -e scip/full > /dev/null
 #echo "getting stats for $data with scip/full"
 #stats=$(./scripts/get_stats.sh -d $data -e scip/full -x $suffix | tail -n 1 | cut -d' ' -f3)

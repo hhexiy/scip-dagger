@@ -352,7 +352,9 @@ SCIP_DECL_NODESELCOMP(nodeselCompDagger)
    isopt2 = SCIPnodeIsOptimal(node2);
    if( (isopt1 && result == 1) || (isopt2 && result == -1) )
       nodeseldata->nerrors++;
-   nodeseldata->ncomps++;
+   /* don't count the case when neither node is opt, in which case it will always be correct */
+   if( isopt1 || isopt2 )
+      nodeseldata->ncomps++;
 
    return result;
 }

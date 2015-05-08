@@ -1,10 +1,10 @@
 #!/bin/bash
 set -e;
 usage() {
-  echo "Usage: $0 -d <data_path_under_dat> -e <experiment> -x <suffix>"
+  echo "Usage: $0 -d <data_path_under_dat> -e <experiment> -x <suffix> -i <inverse>"
 }
-
-while getopts ":hd:e:x:c:w:n:" arg; do
+inverse=false
+while getopts ":hd:e:x:c:w:n:i" arg; do
   case $arg in
     h)
       usage
@@ -18,6 +18,9 @@ while getopts ":hd:e:x:c:w:n:" arg; do
       ;;
     x)
       suffix=${OPTARG}
+      ;;
+    i)
+      inverse=true
       ;;
     :)
       echo "ERROR: -${OPTARG} requires an argument"
@@ -62,14 +65,17 @@ for prob in `ls $datDir`; do
   pb=$(grep "^Best objective" $log | cut -d' ' -f3) 
   pb=${pb%,}
   opt=$(head -n 1 $sol | sed "s/\s\+/ /g" | cut -d' ' -f3)
-  ogap=$(echo "$pb $opt" | awk 'function abs(x){return ((x < 0.0) ? -x : x)} {print abs($1-$2)}')
   igap=$(grep "^Best objective" $log | cut -d' ' -f8) 
   igap=${igap%\%}
   if [ $pb == "-" ]; then
-   #printf "%-20s %-6d %-6.2f %-10.2f %-10s %-10.2f %-5s %-5s\n" \
-   #$base $nnodes $time $db $pb $opt $ogap $igap >> $output
    fail=$((fail+1))
   else
+   # because scip convert to min, negate gurobi's result
+   if [ $inverse == true ]; then
+      db=$(echo $db | awk '{if ($1 < 0) print -1*$1; else print $1}')
+      pb=$(echo $pb | awk '{if ($1 < 0) print -1*$1; else print $1}')
+   fi
+   ogap=$(echo "$pb $opt" | awk 'function abs(x){return ((x < 0.0) ? -x : x)} {print abs($1-$2)}')
    printf "%-20s %-6d %-6.2f %-10.2f %-10.2f %-10.2f %-5.2f %-5.2f\n" \
    $base $nnodes $time $db $pb $opt $ogap $igap >> $output
   fi

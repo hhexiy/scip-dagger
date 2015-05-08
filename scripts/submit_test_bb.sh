@@ -1,7 +1,7 @@
 #!/bin/bash
 
 usage() {
-  echo "Usage: $0 -d <data_path_under_dat> -c <svm_c> -w <svm_w> -n <policy_id> -e <experiment> -x <suffix> -r <restriced_level> -m <mem> -q <queue> -p <policy_dir>"
+  echo "Usage: $0 -d <data_path_under_dat> -c <svm_c> -w <svm_w> -n <policy_id> -e <experiment> -x <suffix> -r <restriced_level> -m <mem> -q <queue> -p <policy_dir> -g <dagger>"
 }
 
 suffix=".lp.gz"
@@ -9,8 +9,9 @@ freq=1
 mem=4
 queue=batch
 policy=""
+dagger=0
 
-while getopts ":hd:e:x:m:r:q:c:w:n:p:" arg; do
+while getopts ":hd:e:x:m:r:q:c:w:n:p:g:" arg; do
   case $arg in
     h)
       usage
@@ -39,6 +40,9 @@ while getopts ":hd:e:x:m:r:q:c:w:n:p:" arg; do
       ;;
     p)
       policy=${OPTARG}
+      ;;
+    g)
+      dagger=${OPTARG}
       ;;
     m)
       mem=${OPTARG}
@@ -77,7 +81,7 @@ echo "memory=${mem}g, queue=$queue"
 
 test_jobid=$(echo "cd $dir; \
 module add cplex; \
-  ./scripts/test_bb.sh -d $data -e $experiment -x $suffix -s $policyDir/searchPolicy.$n -k $policyDir/killPolicy.$n &> $resultDir/$data/$experiment/log;" |
+  ./scripts/test_bb.sh -d $data -g $dagger -e $experiment -x $suffix -s $policyDir/searchPolicy.$n -k $policyDir/killPolicy.$n &> $resultDir/$data/$experiment/log;" |
 qsub -N test-$data-$experiment -q $queue -l walltime=24:00:00,pmem=${mem}g -o $scratch/$data/$experiment/test.output -e $scratch/$data/$experiment/test.error)
 
 echo "submitting stats $experiment for $data (c=$c, w=$w, n=$n) after ${test_jobid}"

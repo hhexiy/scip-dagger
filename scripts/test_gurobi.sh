@@ -6,8 +6,8 @@ usage() {
 
 suffix=".lp.gz"
 freq=1
-nnode=-1
-time=500
+nnode=0
+time=0
 
 while getopts ":hd:n:t:x:r:e:" arg; do
   case $arg in

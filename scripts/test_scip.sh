@@ -1,3 +1,8 @@
+# ========================================
+# get result from Scip solver 
+# (with time or node limit)
+# ========================================
+
 #!/bin/bash
 
 usage() {

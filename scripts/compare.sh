@@ -1,3 +1,9 @@
+# ========================================
+# get timing result from scip-dagger log 
+# then use the same time/node constraint 
+# to test with Gurobi and Scip
+# ========================================
+
 #!/bin/bash
 
 usage() {

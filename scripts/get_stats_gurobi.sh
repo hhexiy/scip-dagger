@@ -59,12 +59,13 @@ for prob in `ls $datDir`; do
   #nvars=$(grep "Variables" $log | head -n 1 | sed "s/\s\+/ /g" | cut -d' ' -f4) 
   #nconstrs=$(grep "Constraints" $log | head -n 1 | sed "s/\s\+/ /g" | cut -d' ' -f4) 
   nnodes=$(grep "Explored" $log | cut -d' ' -f2) 
-  time=$(grep "Solving time" $log | cut -d' ' -f3) 
+  #time=$(grep "Solving time" $log | cut -d' ' -f3) 
+  time=$(grep "Explored" $log | cut -d' ' -f8) 
   db=$(grep "^Best objective" $log | cut -d' ' -f6) 
   db=${db%,}
   pb=$(grep "^Best objective" $log | cut -d' ' -f3) 
   pb=${pb%,}
-  opt=$(head -n 1 $sol | sed "s/\s\+/ /g" | cut -d' ' -f3)
+  opt=$(head -n 1 $sol | sed "s/\s\+/ /g" | cut -d' ' -f5)
   igap=$(grep "^Best objective" $log | cut -d' ' -f8) 
   igap=${igap%\%}
   if [ $pb == "-" ]; then
@@ -76,6 +77,7 @@ for prob in `ls $datDir`; do
       pb=$(echo $pb | awk '{if ($1 < 0) print -1*$1; else print $1}')
    fi
    ogap=$(echo "$pb $opt" | awk 'function abs(x){return ((x < 0.0) ? -x : x)} {print abs($1-$2)}')
+   #echo $base $nnodes $time $db $pb $opt $ogap $igap
    printf "%-20s %-6d %-6.2f %-10.2f %-10.2f %-10.2f %-5.2f %-5.2f\n" \
    $base $nnodes $time $db $pb $opt $ogap $igap >> $output
   fi

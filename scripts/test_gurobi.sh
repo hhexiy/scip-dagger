@@ -1,3 +1,8 @@
+# ========================================
+# get result from Gurobi solver 
+# (with time or node limit)
+# ========================================
+
 #!/bin/bash
 
 usage() {
@@ -61,4 +66,5 @@ for file in `ls $dir`; do
   base=`sed "s/$suffix//g" <<< $file`
   echo $base
   /fs/clip-ml/he/ilp-bb/bin/mip_gurobi -f $dir/$file -p -th 1 -n $nnode -t $time &> $resultDir/$data/$experiment/$base.log
+  #/fs/clip-ml/he/ilp-bb/bin/mip_gurobi -f $dir/$file -t $time -i ~/scratch/summarization/solution/dp/newsWN/train/$base.mst -t 60 &> $resultDir/$data/$experiment/$base.log
 done

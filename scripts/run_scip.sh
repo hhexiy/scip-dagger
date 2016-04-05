@@ -1,3 +1,7 @@
+# ========================================
+# run scip to get solution for training
+# ========================================
+
 data=$1
 data=${data%/}
 suffix=$2
@@ -23,7 +27,7 @@ for fold in train dev test; do
     base=`sed "s/$suffix//g" <<< $file`
     if ! [ -e solution/$data/$fold/$base.sol ]; then
       echo $base
-      bin/scipdagger -f $dir/$fold/$file --sol solution/$data/$fold/$base.sol -s scip.set > $resultDir/$data/$fold/scip/$base.log
+      bin/scipdagger -f $dir/$fold/$file --sol solution/$data/$fold/$base.sol -s scip.set -t 30 > $resultDir/$data/$fold/scip/$base.log
     fi
   done
 done

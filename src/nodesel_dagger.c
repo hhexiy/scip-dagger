@@ -71,11 +71,11 @@ void SCIPnodeseldaggerPrintStatistics(
    nodeseldata = SCIPnodeselGetData(nodesel);
    assert(nodeseldata != NULL);
 
-   SCIPmessageFPrintInfo(scip->messagehdlr, file, 
+   SCIPmessageFPrintInfo(scip->messagehdlr, file,
          "Node selector      :\n");
-   SCIPmessageFPrintInfo(scip->messagehdlr, file, 
+   SCIPmessageFPrintInfo(scip->messagehdlr, file,
          "  comp error rate  : %d/%d\n", nodeseldata->nerrors, nodeseldata->ncomps);
-   SCIPmessageFPrintInfo(scip->messagehdlr, file, 
+   SCIPmessageFPrintInfo(scip->messagehdlr, file,
          "  selection time   : %10.2f\n", SCIPnodeselGetTime(nodesel));
 }
 
@@ -96,7 +96,7 @@ SCIP_DECL_NODESELINIT(nodeselInitDagger)
    SCIP_CALL( SCIPreadOptSol(scip, nodeseldata->solfname, &nodeseldata->optsol) );
    assert(nodeseldata->optsol != NULL);
 #ifdef SCIP_DEBUG
-   SCIP_CALL( SCIPprintSol(scip, nodeseldata->optsol, NULL, FALSE) ); 
+   SCIP_CALL( SCIPprintSol(scip, nodeseldata->optsol, NULL, FALSE) );
 #endif
 
    /* read policy */
@@ -104,13 +104,13 @@ SCIP_DECL_NODESELINIT(nodeselInitDagger)
    assert(nodeseldata->polfname != NULL);
    SCIP_CALL( SCIPreadLIBSVMPolicy(scip, nodeseldata->polfname, &nodeseldata->policy) );
    assert(nodeseldata->policy->weights != NULL);
-  
+
    /* open trajectory file for writing */
    /* open in appending mode for writing training file from multiple problems */
    nodeseldata->trjfile = NULL;
    if( nodeseldata->trjfname != NULL )
    {
-      char wfname[100];
+      char wfname[SCIP_MAXSTRLEN];
       strcpy(wfname, nodeseldata->trjfname);
       strcat(wfname, ".weight");
       nodeseldata->wfile = fopen(wfname, "a");
@@ -122,7 +122,7 @@ SCIP_DECL_NODESELINIT(nodeselInitDagger)
    SCIP_CALL( SCIPfeatCreate(scip, &nodeseldata->feat, SCIP_FEATNODESEL_SIZE) );
    assert(nodeseldata->feat != NULL);
    SCIPfeatSetMaxDepth(nodeseldata->feat, SCIPgetNBinVars(scip) + SCIPgetNIntVars(scip));
-  
+
    /* create optimal node feat */
    nodeseldata->optfeat = NULL;
    SCIP_CALL( SCIPfeatCreate(scip, &nodeseldata->optfeat, SCIP_FEATNODESEL_SIZE) );
@@ -152,7 +152,7 @@ SCIP_DECL_NODESELEXIT(nodeselExitDagger)
 
    assert(nodeseldata->optsol != NULL);
    SCIP_CALL( SCIPfreeSolSelf(scip, &nodeseldata->optsol) );
-  
+
    if( nodeseldata->trjfile != NULL)
    {
       fclose(nodeseldata->wfile);
@@ -166,7 +166,7 @@ SCIP_DECL_NODESELEXIT(nodeselExitDagger)
 
    assert(nodeseldata->policy != NULL);
    SCIP_CALL( SCIPpolicyFree(scip, &nodeseldata->policy) );
-   
+
    return SCIP_OKAY;
 }
 
@@ -220,8 +220,11 @@ SCIP_DECL_NODESELSELECT(nodeselSelectDagger)
       SCIPcalcNodeScore(children[i], nodeseldata->feat, nodeseldata->policy);
 
       /* check optimality */
-      SCIP_CALL( SCIPnodeCheckOptimal(scip, children[i], nodeseldata->optsol) ); 
-      SCIPnodeSetOptchecked(children[i]);
+      if( ! SCIPnodeIsOptchecked(children[i]) )
+      {
+         SCIPnodeCheckOptimal(scip, children[i], nodeseldata->optsol);
+         SCIPnodeSetOptchecked(children[i]);
+      }
       if( SCIPnodeIsOptimal(children[i]) )
       {
 #ifndef NDEBUG
@@ -395,15 +398,15 @@ SCIP_RETCODE SCIPincludeNodeselDagger(
    SCIP_CALL( SCIPsetNodeselFree(scip, nodesel, nodeselFreeDagger) );
 
    /* add dagger node selector parameters */
-   SCIP_CALL( SCIPaddStringParam(scip, 
+   SCIP_CALL( SCIPaddStringParam(scip,
          "nodeselection/"NODESEL_NAME"/solfname",
          "name of the optimal solution file",
          &nodeseldata->solfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );
-   SCIP_CALL( SCIPaddStringParam(scip, 
+   SCIP_CALL( SCIPaddStringParam(scip,
          "nodeselection/"NODESEL_NAME"/trjfname",
          "name of the file to write node selection trajectories",
          &nodeseldata->trjfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );
-   SCIP_CALL( SCIPaddStringParam(scip, 
+   SCIP_CALL( SCIPaddStringParam(scip,
          "nodeselection/"NODESEL_NAME"/polfname",
          "name of the policy model file",
          &nodeseldata->polfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );

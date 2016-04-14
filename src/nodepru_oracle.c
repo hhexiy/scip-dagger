@@ -1,6 +1,6 @@
 /**@file   nodepru_oracle.c
  * @brief  oracle node pruner which prunes all non-optimal nodes
- * @author He He 
+ * @author He He
  *
  * the UCT node selection rule selects the next leaf according to a mixed score of the node's actual lower bound
  *
@@ -34,7 +34,7 @@ struct SCIP_NodepruData
    SCIP_FEAT*         feat;               /**< optimal solution */
    char*              solfname;           /**< name of the solution file */
    char*              trjfname;           /**< name of the trajectory file */
-   SCIP_Bool          checkopt;           /**< need to check node optimality? (don't need to if node selector is oracle or dagger */ 
+   SCIP_Bool          checkopt;           /**< need to check node optimality? (don't need to if node selector is oracle or dagger */
    FILE*              wfile;
    FILE*              trjfile;
 };
@@ -62,7 +62,7 @@ SCIP_DECL_NODEPRUINIT(nodepruInitOracle)
    SCIP_CALL( SCIPreadOptSol(scip, nodeprudata->solfname, &nodeprudata->optsol) );
    assert(nodeprudata->optsol != NULL);
 #ifdef SCIP_DEBUG
-   SCIP_CALL( SCIPprintSol(scip, nodeprudata->optsol, NULL, FALSE) ); 
+   SCIP_CALL( SCIPprintSol(scip, nodeprudata->optsol, NULL, FALSE) );
 #endif
 
    if( strcmp(SCIPnodeselGetName(SCIPgetNodesel(scip)), "oracle") == 0 ||
@@ -74,7 +74,7 @@ SCIP_DECL_NODEPRUINIT(nodepruInitOracle)
    nodeprudata->trjfile = NULL;
    if( nodeprudata->trjfname != NULL )
    {
-      char wfname[100];
+      char wfname[SCIP_MAXSTRLEN];
       strcpy(wfname, nodeprudata->trjfname);
       strcat(wfname, ".weight");
       nodeprudata->wfile = fopen(wfname, "a");
@@ -86,7 +86,7 @@ SCIP_DECL_NODEPRUINIT(nodepruInitOracle)
    SCIP_CALL( SCIPfeatCreate(scip, &nodeprudata->feat, SCIP_FEATNODEPRU_SIZE) );
    assert(nodeprudata->feat != NULL);
    SCIPfeatSetMaxDepth(nodeprudata->feat, (SCIP_Real)SCIPgetNBinVars(scip) + SCIPgetNIntVars(scip));
-  
+
    return SCIP_OKAY;
 }
 
@@ -226,11 +226,11 @@ SCIP_RETCODE SCIPincludeNodepruOracle(
    SCIP_CALL( SCIPsetNodepruFree(scip, nodepru, nodepruFreeOracle) );
 
    /* add oracle node pruner parameters */
-   SCIP_CALL( SCIPaddStringParam(scip, 
+   SCIP_CALL( SCIPaddStringParam(scip,
          "nodepruning/"NODEPRU_NAME"/solfname",
          "name of the optimal solution file",
          &nodeprudata->solfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );
-   SCIP_CALL( SCIPaddStringParam(scip, 
+   SCIP_CALL( SCIPaddStringParam(scip,
          "nodepruning/"NODEPRU_NAME"/trjfname",
          "name of the file to write node pruning trajectories",
          &nodeprudata->trjfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );

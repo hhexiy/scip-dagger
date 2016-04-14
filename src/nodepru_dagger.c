@@ -1,6 +1,6 @@
 /**@file   nodepru_dagger.c
- * @brief  node pruner which prunes node according to a learned policy and writes examples according to the oracle choice 
- * @author He He 
+ * @brief  node pruner which prunes node according to a learned policy and writes examples according to the oracle choice
+ * @author He He
  *
  * the UCT node pruning rule pruects the next leaf according to a mixed score of the node's actual lower bound
  *
@@ -50,7 +50,7 @@ struct SCIP_NodepruData
    FILE*              wfile;
    FILE*              trjfile;
    SCIP_FEAT*         feat;
-   SCIP_Bool          checkopt;           /**< need to check node optimality? (don't need to if node selector is oracle or dagger */ 
+   SCIP_Bool          checkopt;           /**< need to check node optimality? (don't need to if node selector is oracle or dagger */
    int                nprunes;            /**< number of nodes pruned */
    int                nnodes;             /**< number of nodes checked */
    int                nfalsepos;           /**< number of optimal nodes pruned */
@@ -73,15 +73,15 @@ void SCIPnodeprudaggerPrintStatistics(
    nodeprudata = SCIPnodepruGetData(nodepru);
    assert(nodeprudata != NULL);
 
-   SCIPmessageFPrintInfo(scip->messagehdlr, file, 
+   SCIPmessageFPrintInfo(scip->messagehdlr, file,
          "Node pruner        :\n");
-   SCIPmessageFPrintInfo(scip->messagehdlr, file, 
+   SCIPmessageFPrintInfo(scip->messagehdlr, file,
          "  nodes pruned     : %d/%d\n", nodeprudata->nprunes, nodeprudata->nnodes);
-   SCIPmessageFPrintInfo(scip->messagehdlr, file, 
+   SCIPmessageFPrintInfo(scip->messagehdlr, file,
          "  FP pruned        : %d/%d\n", nodeprudata->nfalsepos, nodeprudata->nnodes);
-   SCIPmessageFPrintInfo(scip->messagehdlr, file, 
+   SCIPmessageFPrintInfo(scip->messagehdlr, file,
          "  FN pruned        : %d/%d\n", nodeprudata->nfalseneg, nodeprudata->nnodes);
-   SCIPmessageFPrintInfo(scip->messagehdlr, file, 
+   SCIPmessageFPrintInfo(scip->messagehdlr, file,
          "  pruning time     : %10.2f\n", SCIPnodepruGetTime(nodepru));
 }
 
@@ -102,7 +102,7 @@ SCIP_DECL_NODEPRUINIT(nodepruInitDagger)
    SCIP_CALL( SCIPreadOptSol(scip, nodeprudata->solfname, &nodeprudata->optsol) );
    assert(nodeprudata->optsol != NULL);
 #ifdef SCIP_DEBUG
-   SCIP_CALL( SCIPprintSol(scip, nodeprudata->optsol, NULL, FALSE) ); 
+   SCIP_CALL( SCIPprintSol(scip, nodeprudata->optsol, NULL, FALSE) );
 #endif
 
    /* read policy */
@@ -110,13 +110,13 @@ SCIP_DECL_NODEPRUINIT(nodepruInitDagger)
    assert(nodeprudata->polfname != NULL);
    SCIP_CALL( SCIPreadLIBSVMPolicy(scip, nodeprudata->polfname, &nodeprudata->policy) );
    assert(nodeprudata->policy->weights != NULL);
-  
+
    /* open trajectory file for writing */
    /* open in appending mode for writing training file from multiple problems */
    nodeprudata->trjfile = NULL;
    if( nodeprudata->trjfname != NULL )
    {
-      char wfname[100];
+      char wfname[SCIP_MAXSTRLEN];
       strcpy(wfname, nodeprudata->trjfname);
       strcat(wfname, ".weight");
       nodeprudata->wfile = fopen(wfname, "a");
@@ -128,7 +128,7 @@ SCIP_DECL_NODEPRUINIT(nodepruInitDagger)
    SCIP_CALL( SCIPfeatCreate(scip, &nodeprudata->feat, SCIP_FEATNODEPRU_SIZE) );
    assert(nodeprudata->feat != NULL);
    SCIPfeatSetMaxDepth(nodeprudata->feat, SCIPgetNBinVars(scip) + SCIPgetNIntVars(scip));
-  
+
    if( strcmp(SCIPnodeselGetName(SCIPgetNodesel(scip)), "oracle") == 0 ||
        strcmp(SCIPnodeselGetName(SCIPgetNodesel(scip)), "dagger") == 0 )
       nodeprudata->checkopt = FALSE;
@@ -156,7 +156,7 @@ SCIP_DECL_NODEPRUEXIT(nodepruExitDagger)
 
    assert(nodeprudata->optsol != NULL);
    SCIP_CALL( SCIPfreeSolSelf(scip, &nodeprudata->optsol) );
-  
+
    if( nodeprudata->trjfile != NULL)
    {
       fclose(nodeprudata->wfile);
@@ -168,7 +168,7 @@ SCIP_DECL_NODEPRUEXIT(nodepruExitDagger)
 
    assert(nodeprudata->policy != NULL);
    SCIP_CALL( SCIPpolicyFree(scip, &nodeprudata->policy) );
-   
+
    return SCIP_OKAY;
 }
 
@@ -303,15 +303,15 @@ SCIP_RETCODE SCIPincludeNodepruDagger(
    SCIP_CALL( SCIPsetNodepruFree(scip, nodepru, nodepruFreeDagger) );
 
    /* add dagger node pruner parameters */
-   SCIP_CALL( SCIPaddStringParam(scip, 
+   SCIP_CALL( SCIPaddStringParam(scip,
          "nodepruning/"NODEPRU_NAME"/solfname",
          "name of the optimal solution file",
          &nodeprudata->solfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );
-   SCIP_CALL( SCIPaddStringParam(scip, 
+   SCIP_CALL( SCIPaddStringParam(scip,
          "nodepruning/"NODEPRU_NAME"/trjfname",
          "name of the file to write node pruning trajectories",
          &nodeprudata->trjfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );
-   SCIP_CALL( SCIPaddStringParam(scip, 
+   SCIP_CALL( SCIPaddStringParam(scip,
          "nodepruning/"NODEPRU_NAME"/polfname",
          "name of the policy model file",
          &nodeprudata->polfname, FALSE, DEFAULT_FILENAME, NULL, NULL) );

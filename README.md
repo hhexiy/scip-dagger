@@ -8,7 +8,7 @@ Currently it's tested on Linux only.
 This implementation is base on the open source ILP solver [SCIP 3.1.0](http://scip.zib.de/).
 To have access to more features during solving, I had to change/add some API in the original SCIP package.
 You can either get the affected source director src/scip from [this repo](https://github.com/hhexiy/scip) and make changes accordingly to your SCIP package,
-or download the whole SCIP package I used [here](http://www.umiacs.umd.edu/~hhe/scip-3.1.0.tgz).
+or download the whole SCIP package `scip-3.1.0.tgz`.
 Then you need to change `SCIPDIR` in the `Makefile`.
 ### CPLEX
 We used [CPLEX](http://www-03.ibm.com/software/products/en/ibmilogcpleoptistud) as the LP solver for SCIP. 
@@ -17,7 +17,7 @@ But you can also use other LP solvers. Please see details in SCIP documentation.
 To train the (linear) policy, you need [LIBLINEAR](https://www.csie.ntu.edu.tw/~cjlin/liblinear/).
 I used version 1.94 but it should be compatible with later versions.
 After compiling put the executable `train` and `predict` in `bin`.
-LIBLINEAR does not support instance weights; please also download [LIBLINEAR-weights](http://ntu.csie.org/~cjlin/libsvmtools/#weights_for_data_instances) and put the executable `train-w` in `bin`.
+LIBLINEAR does not support instance weights; please also download [LIBLINEAR-weights](https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/) and put the executable `train-w` in `bin`.
 
 ## Data preparation
 This algorithm learns from *solved* problems.
